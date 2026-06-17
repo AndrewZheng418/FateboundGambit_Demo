@@ -132,6 +132,12 @@
       to { opacity: 1; transform: translate(-50%, -50%) rotate(0); }
     }
 
+    @keyframes mapCardFlipTurn {
+      0% { transform: rotateY(0deg); filter: brightness(1); }
+      45% { transform: rotateY(88deg); filter: brightness(1.55) drop-shadow(0 0 18px rgba(255, 223, 125, .9)); }
+      100% { transform: rotateY(180deg); filter: brightness(1); }
+    }
+
     @keyframes scorePop {
       0% { opacity: 0; transform: translateY(18px) scale(.72); }
       60% { opacity: 1; transform: translateY(-5px) scale(1.08); }
@@ -216,6 +222,7 @@
       content: "";
       position: absolute;
       inset: 0;
+      background-image: var(--bg-image, none);
       background-position: center;
       background-size: cover;
       background-repeat: no-repeat;
@@ -233,40 +240,16 @@
       pointer-events: none;
     }
 
-    .bg-title::before {
-      background-image: url("assets/cover_ming_card.jpg");
-    }
-
-    .bg-cottage::before {
-      background-image: url("assets/bg_qingya_cottage.jpg");
-    }
-
-    .bg-attack::before {
-      background-image: url("assets/bg_qingya_attack.jpg");
-    }
-
-    .bg-map1::before {
-      background-image: url("assets/bg_fate_map_backhill.jpg");
-    }
-
-    .bg-map2::before {
-      background-image: url("assets/bg_fate_map_tunnel.jpg");
-    }
-
-    .bg-battle::before {
-      background-image: url("assets/bg_battle_minion.jpg");
-    }
-
-    .bg-boss::before {
-      background-image: url("assets/bg_battle_boss.jpg");
-    }
-
-    .bg-shop::before {
-      background-image: url("assets/bg_shop_sujinshu.jpg");
-    }
-
+    .bg-title::before,
+    .bg-cottage::before,
+    .bg-attack::before,
+    .bg-map1::before,
+    .bg-map2::before,
+    .bg-battle::before,
+    .bg-boss::before,
+    .bg-shop::before,
     .bg-base::before {
-      background-image: url("assets/bg_qingya_cottage.jpg");
+      background-color: #dceae2;
     }
 
     .bg-battle::after,
@@ -382,7 +365,7 @@
 
     #baseScreen .role.right {
       right: 6px;
-      bottom: 116px;
+      bottom: 132px;
       height: 250px;
       z-index: 18;
     }
@@ -398,7 +381,7 @@
 
     .dialog-role {
       position: absolute;
-      bottom: calc(190px + var(--safe-bottom));
+      bottom: calc(150px + var(--safe-bottom));
       z-index: 18;
       width: 48%;
       height: 310px;
@@ -431,10 +414,28 @@
       filter: drop-shadow(0 10px 14px rgba(0,0,0,.28));
     }
 
+    #storyScreen.event-dialog .dialog-role {
+      bottom: calc(150px + var(--safe-bottom));
+    }
+
+    #storyScreen.choice-dialog .dialog-role {
+      bottom: calc(250px + var(--safe-bottom));
+    }
+
+    #storyScreen.choice-dialog .dialog-role .portrait {
+      width: 176px;
+      height: 288px;
+    }
+
+    #storyScreen.shop-dialog .dialog-role {
+      bottom: calc(154px + var(--safe-bottom));
+    }
+
     .portrait {
       width: 150px;
       height: 250px;
       border-radius: 18px;
+      background-image: var(--portrait-image, none);
       background-position: center bottom;
       background-size: contain;
       background-repeat: no-repeat;
@@ -451,7 +452,7 @@
     }
 
     .portrait::after {
-      content: attr(data-label);
+      content: none;
       position: absolute;
       left: 50%;
       bottom: -28px;
@@ -465,13 +466,6 @@
       white-space: nowrap;
     }
 
-    .p-hero { background-image: url("assets/portrait_hero.png"); }
-    .p-qingtang { background-image: url("assets/portrait_qingtang.png"); }
-    .p-master { background-image: url("assets/portrait_master.png"); }
-    .p-merchant { background-image: url("assets/portrait_merchant.png"); }
-    .p-villain,
-    .p-redboss { background-image: url("assets/portrait_villain.png"); }
-
     .topbar {
       position: absolute;
       left: 12px;
@@ -480,9 +474,9 @@
       z-index: 10;
       min-height: 42px;
       display: flex;
-      gap: 7px;
+      gap: 10px;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-start;
       padding: 8px 10px;
       border: 1px solid rgba(218, 177, 95, .4);
       border-radius: 14px;
@@ -495,7 +489,7 @@
     .resource {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
       white-space: nowrap;
       color: #f9e6b4;
     }
@@ -515,6 +509,21 @@
       font-size: 12px;
     }
 
+    .topbar .review-open {
+      margin-left: auto;
+    }
+
+    .topbar-sound {
+      width: 30px;
+      height: 30px;
+      min-height: 30px;
+      padding: 0;
+      flex: 0 0 auto;
+      font-size: 0;
+      display: grid;
+      place-items: center;
+    }
+
     .quick-controls {
       position: absolute;
       right: 18px;
@@ -523,11 +532,16 @@
       display: grid;
       gap: 8px;
       justify-items: center;
-      width: 64px;
+      width: 72px;
     }
 
     body.battle-active .quick-controls {
       top: calc(106px + env(safe-area-inset-top, 0px));
+    }
+
+    body.story-active .quick-controls {
+      right: 12px;
+      top: calc(72px + env(safe-area-inset-top, 0px));
     }
 
     .quick-control-btn {
@@ -547,15 +561,19 @@
     .quick-control-btn::before {
       display: block;
       font-size: 18px;
-      line-height: 34px;
+      line-height: 28px;
       text-align: center;
     }
 
-    #soundToggleBtn::before {
+    .topbar-sound::before {
+      line-height: 34px;
+    }
+
+    .sound-toggle::before {
       content: "♪";
     }
 
-    #soundToggleBtn.muted::before {
+    .sound-toggle.muted::before {
       content: "♪×";
       font-size: 13px;
     }
@@ -853,6 +871,11 @@
       animation: pulseGold 1.05s ease-in-out infinite;
     }
 
+    .fortune-card.revealed {
+      filter: drop-shadow(0 0 18px rgba(255, 218, 102, .95));
+      animation: none;
+    }
+
     .fortune-card-inner {
       position: absolute;
       inset: 0;
@@ -880,6 +903,13 @@
     .fortune-card-front {
       background: linear-gradient(180deg, rgba(52, 71, 64, .94), rgba(25, 36, 35, .98));
       font-size: 22px;
+    }
+
+    .fortune-card.revealed .fortune-card-front {
+      background: linear-gradient(180deg, #fff2bf, #d9a54e 62%, #7c3b20);
+      color: #5a1f12;
+      font-size: 24px;
+      text-shadow: 0 1px 0 rgba(255,255,255,.45);
     }
 
     .fortune-card-back {
@@ -922,25 +952,56 @@
       padding-bottom: calc(190px + var(--safe-bottom));
     }
 
-    .map-title {
+    .map-heading {
       position: absolute;
-      top: calc(62px + env(safe-area-inset-top, 0px));
+      top: calc(70px + env(safe-area-inset-top, 0px));
       left: 22px;
       right: 22px;
       z-index: 5;
-      color: #f7d785;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 28px;
+      pointer-events: none;
+    }
+
+    .map-title {
+      color: #ffe299;
       text-align: center;
       font-size: 18px;
       font-weight: 800;
       letter-spacing: 1px;
-      text-shadow: 0 3px 10px rgba(0,0,0,.55);
+      text-shadow:
+        0 2px 0 rgba(53, 38, 18, .72),
+        0 0 8px rgba(24, 28, 20, .86),
+        0 0 18px rgba(0,0,0,.68);
+    }
+
+    .map-shard {
+      position: absolute;
+      left: 0;
+      pointer-events: auto;
+      padding: 5px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(218, 177, 95, .42);
+      background: rgba(248, 239, 205, .74);
+      color: #5d3d1b;
+      font-size: 12px;
+      font-weight: 800;
+      box-shadow: 0 4px 12px rgba(34, 42, 30, .16);
+      backdrop-filter: blur(4px);
+    }
+
+    .map-shard b {
+      color: #8a241b;
+      font-weight: 900;
     }
 
     .fate-map {
       position: absolute;
       left: 12px;
       right: 12px;
-      top: calc(98px + env(safe-area-inset-top, 0px));
+      top: calc(104px + env(safe-area-inset-top, 0px));
       bottom: calc(190px + var(--safe-bottom));
       border-radius: 26px;
       border: 1px solid rgba(218, 177, 95, .38);
@@ -951,11 +1012,28 @@
 
     .path-line {
       position: absolute;
-      height: 3px;
-      background: linear-gradient(90deg, transparent, rgba(255, 219, 128, .6), transparent);
+      height: 5px;
+      background: linear-gradient(90deg, transparent 0%, rgba(92, 55, 18, .28) 9%, rgba(255, 241, 176, .95) 50%, rgba(92, 55, 18, .28) 91%, transparent 100%);
       transform-origin: left center;
-      opacity: .62;
-      filter: drop-shadow(0 0 5px rgba(255, 219, 128, .48));
+      opacity: .92;
+      border-radius: 999px;
+      box-shadow:
+        0 0 0 1px rgba(90, 62, 24, .18),
+        0 0 8px rgba(255, 235, 150, .68),
+        0 1px 3px rgba(18, 22, 18, .32);
+      z-index: 1;
+    }
+
+    .path-line::after {
+      content: "";
+      position: absolute;
+      left: 11%;
+      right: 11%;
+      top: 50%;
+      height: 1px;
+      transform: translateY(-50%);
+      background: rgba(255, 255, 220, .72);
+      border-radius: 999px;
     }
 
     .fate-node {
@@ -975,9 +1053,8 @@
       transition: transform .95s ease;
     }
 
-    .fate-node.flipped .fate-node-inner {
-      transform: rotateY(180deg);
-      animation: cardFlipGlow 1.05s ease both;
+    .fate-node.flipping .fate-node-inner {
+      animation: mapCardFlipTurn .78s ease both;
     }
 
     .fate-face {
@@ -1024,6 +1101,32 @@
       font-weight: 800;
     }
 
+    .fate-node.flipped:not(.flipping) .fate-node-inner {
+      transform: none;
+      animation: none;
+    }
+
+    .fate-node.flipped:not(.flipping) .fate-back {
+      display: none;
+    }
+
+    .fate-node.flipped:not(.flipping) .fate-front {
+      transform: none;
+      backface-visibility: visible;
+      background:
+        radial-gradient(circle at 50% 28%, rgba(255,255,255,.62), transparent 25%),
+        linear-gradient(180deg, #fff4c9, #efd38c 58%, #b67a36);
+      color: #5b2a12;
+      box-shadow: 0 0 18px rgba(255, 222, 126, .6), 0 8px 14px rgba(0,0,0,.28);
+    }
+
+    .fate-node.flipping .fate-front {
+      background:
+        radial-gradient(circle at 50% 28%, rgba(255,255,255,.62), transparent 25%),
+        linear-gradient(180deg, #fff4c9, #efd38c 58%, #b67a36);
+      color: #5b2a12;
+    }
+
     .fate-front::before {
       content: "";
       position: absolute;
@@ -1034,14 +1137,14 @@
     }
 
     .fate-node.dealing {
-      animation: mapCardDeal .48s ease both;
-      animation-delay: calc(var(--i, 0) * 80ms);
+      animation: mapCardDeal .82s ease both;
+      animation-delay: calc(var(--i, 0) * 135ms);
     }
 
     .map-dpad {
       position: absolute;
       right: 18px;
-      bottom: calc(178px + var(--safe-bottom));
+      bottom: calc(214px + var(--safe-bottom));
       z-index: 20;
       width: 92px;
       height: 92px;
@@ -1068,11 +1171,12 @@
     .dpad-btn.right { right: 0; top: 31px; }
 
     .fate-icon {
-      font-size: 20px;
+      font-size: 28px;
       line-height: 1;
     }
 
     .fate-label {
+      display: none;
       font-size: 10px;
       line-height: 1.1;
     }
@@ -1107,15 +1211,35 @@
     }
 
     .path-line.blocked {
-      background: linear-gradient(90deg, transparent, rgba(220, 35, 28, .9), transparent);
-      filter: drop-shadow(0 0 4px rgba(220, 35, 28, .6));
+      height: 4px;
+      background: linear-gradient(90deg, transparent 0%, rgba(190, 31, 24, .92) 18%, rgba(255, 105, 80, .96) 52%, rgba(190, 31, 24, .92) 82%, transparent 100%);
+      opacity: .96;
+      box-shadow:
+        0 0 0 1px rgba(80, 0, 0, .25),
+        0 0 10px rgba(224, 45, 34, .72),
+        0 0 18px rgba(180, 22, 18, .42);
+    }
+
+    .path-line.blocked::before {
+      content: none;
+    }
+
+    .path-line.blocked::after {
+      left: 14%;
+      right: 14%;
+      top: 50%;
+      height: 1px;
+      transform: translateY(-50%);
+      background: rgba(255, 198, 156, .72);
+      border: 0;
+      box-shadow: none;
     }
 
     .sword-token {
       position: absolute;
-      width: 44px;
-      height: 44px;
-      transform: translate(-50%, -50%);
+      width: 34px;
+      height: 34px;
+      transform: translate(-50%, -50%) translate(18px, 12px);
       z-index: 5;
       transition: left .68s ease, top .68s ease;
       filter: drop-shadow(0 0 10px rgba(121, 224, 255, .92));
@@ -1124,10 +1248,10 @@
     .sword-token::before {
       content: "";
       position: absolute;
-      left: 19px;
-      top: 3px;
-      width: 7px;
-      height: 30px;
+      left: 14px;
+      top: 2px;
+      width: 5px;
+      height: 24px;
       border-radius: 6px 6px 2px 2px;
       background: linear-gradient(180deg, #e7ffff, #56c8c0 48%, #8d6c32);
       transform: rotate(42deg);
@@ -1137,10 +1261,10 @@
     .sword-token::after {
       content: "命";
       position: absolute;
-      left: 8px;
-      top: 9px;
-      width: 27px;
-      height: 27px;
+      left: 5px;
+      top: 7px;
+      width: 23px;
+      height: 23px;
       display: grid;
       place-items: center;
       border-radius: 50%;
@@ -1178,9 +1302,9 @@
       background: rgba(255, 247, 222, .78);
       border: 1px solid rgba(105, 65, 24, .26);
       color: #2f2112;
-      min-height: 248px;
+      min-height: 218px;
       display: grid;
-      grid-template-rows: 70px auto 1fr auto auto;
+      grid-template-rows: 56px auto 1fr auto auto;
       gap: 6px;
       overflow: hidden;
     }
@@ -1200,8 +1324,8 @@
     }
 
     .shop-item-icon {
-      width: 70px;
-      height: 70px;
+      width: 56px;
+      height: 56px;
       margin: 0 auto;
       display: grid;
       place-items: center;
@@ -1211,7 +1335,7 @@
         radial-gradient(circle at 50% 40%, rgba(255,255,255,.5), transparent 36%),
         linear-gradient(180deg, rgba(24, 40, 43, .84), rgba(12, 18, 21, .92));
       color: #ffe3a0;
-      font-size: 30px;
+      font-size: 26px;
       box-shadow: inset 0 0 16px rgba(255, 226, 151, .12), 0 5px 12px rgba(0,0,0,.18);
     }
 
@@ -1240,7 +1364,7 @@
       padding: calc(64px + env(safe-area-inset-top, 0px)) 12px calc(12px + var(--safe-bottom));
       z-index: 5;
       display: grid;
-      grid-template-rows: 178px 1fr 46px;
+      grid-template-rows: 166px 1fr 46px;
       gap: 10px;
     }
 
@@ -1284,8 +1408,11 @@
     }
 
     .shop-shelf {
-      overflow: hidden;
+      position: relative;
+      overflow-y: auto;
+      overflow-x: hidden;
       padding: 10px;
+      padding-top: 48px;
       border-radius: 20px;
       border: 1px solid rgba(218, 177, 95, .42);
       background: rgba(250, 233, 193, .78);
@@ -1294,6 +1421,28 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
       align-content: start;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .shop-shelf::-webkit-scrollbar {
+      display: none;
+    }
+
+    .shop-refresh {
+      position: absolute;
+      left: 10px;
+      top: 10px;
+      z-index: 3;
+      min-height: 30px;
+      padding: 0 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(126, 39, 30, .28);
+      background: rgba(255, 247, 222, .82);
+      color: #762019;
+      font-size: 12px;
+      font-weight: 900;
+      box-shadow: 0 4px 10px rgba(70, 42, 18, .12);
     }
 
     .shop-leave {
@@ -1482,6 +1631,40 @@
       line-height: 1.45;
     }
 
+    .combo-meter {
+      display: grid;
+      grid-template-columns: 1.25fr .9fr .72fr 1fr;
+      gap: 5px;
+      align-items: stretch;
+    }
+
+    .combo-pill {
+      min-width: 0;
+      padding: 5px 6px;
+      border-radius: 9px;
+      background: rgba(7, 14, 17, .34);
+      border: 1px solid rgba(255, 221, 142, .16);
+    }
+
+    .combo-pill span {
+      display: block;
+      color: rgba(255, 242, 196, .72);
+      font-size: 10px;
+      line-height: 1.1;
+      white-space: nowrap;
+    }
+
+    .combo-pill b {
+      display: block;
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #ffe08b;
+      font-size: 13px;
+      line-height: 1.1;
+    }
+
     .combo-preview strong {
       color: #ffe08b;
       margin-right: 8px;
@@ -1540,14 +1723,14 @@
 
     .score-float {
       color: #ffe28a;
-      font-size: 18px;
+      font-size: 22px;
     }
 
     .relic-float {
       left: 48px;
       top: 48%;
       color: #9df4ff;
-      font-size: 16px;
+      font-size: 19px;
     }
 
     .player-hit-pop {
@@ -1856,18 +2039,19 @@
 
     .battle-dialogue .portrait {
       position: absolute;
-      right: 8px;
-      bottom: 116px;
-      width: 126px;
-      height: 210px;
+      right: 10px;
+      bottom: 118px;
+      width: 178px;
+      height: 292px;
       opacity: .96;
-      z-index: 1;
+      z-index: 3;
       pointer-events: none;
+      filter: drop-shadow(0 10px 16px rgba(0,0,0,.34));
     }
 
     .battle-dialogue-content {
       position: relative;
-      z-index: 2;
+      z-index: 4;
       padding: 14px;
     }
 
@@ -2032,6 +2216,17 @@
       display: block;
       animation: fadeIn .2s ease both;
     }
+
+    .resource-float {
+      position: absolute;
+      z-index: 85;
+      color: #4fd36f;
+      font-size: 15px;
+      font-weight: 900;
+      text-shadow: 0 2px 4px rgba(8, 38, 18, .45);
+      pointer-events: none;
+      animation: floatText 1.15s ease both;
+    }
   </style>
 </head>
 <body>
@@ -2071,6 +2266,7 @@
         <span class="resource">地图 <b id="storyPlace">青崖峰</b></span>
         <span class="resource">气运 <b id="storyLuck">30</b></span>
         <button class="topbar-btn review-open">回顾</button>
+        <button class="topbar-btn quick-control-btn topbar-sound sound-toggle" aria-label="声音开关"></button>
       </div>
       <div class="scene-illustration">
         <div id="sceneVoid" class="void-shape" style="display:none;"></div>
@@ -2104,10 +2300,14 @@
         <span class="resource">气血 <b id="resHp">100</b></span>
         <span class="resource">真元 <b id="resYuan">10</b></span>
         <span class="resource">气运 <b id="resLuck">30</b></span>
-        <span class="resource">气运池 <b id="resPool">0</b></span>
         <button class="topbar-btn review-open">回顾</button>
+        <button class="topbar-btn quick-control-btn topbar-sound sound-toggle" aria-label="声音开关"></button>
       </div>
-      <div id="mapTitle" class="map-title">青崖峰后山 · 逃亡</div>
+      <div class="map-heading">
+        <span class="map-shard resource">命尘 <b id="resPool">0</b></span>
+        <div id="mapTitle" class="map-title">青崖峰后山 · 逃亡</div>
+        <span></span>
+      </div>
       <div id="fateMap" class="fate-map"></div>
       <div class="map-dpad">
         <button class="dpad-btn up" data-dir="up">▲</button>
@@ -2132,9 +2332,10 @@
       <div class="topbar">
         <span class="resource">气血 <b id="battleHp">100</b></span>
         <span class="resource">气运 <b id="battleLuck">30</b></span>
-        <span class="resource">气运池 <b id="battlePool">0</b></span>
+        <span class="resource">命尘 <b id="battlePool">0</b></span>
         <span class="resource">人和技 <b id="skillState">青崖剑诀</b></span>
         <button class="topbar-btn review-open">回顾</button>
+        <button class="topbar-btn quick-control-btn topbar-sound sound-toggle" aria-label="声音开关"></button>
       </div>
       <div class="battle-layout">
         <div id="battleRelicRail" class="battle-rail left">
@@ -2193,6 +2394,7 @@
         <span class="resource">地图 <b>阎浮行商铺</b></span>
         <span class="resource">气运 <b id="shopLuck">30</b></span>
         <button class="topbar-btn review-open">回顾</button>
+        <button class="topbar-btn quick-control-btn topbar-sound sound-toggle" aria-label="声音开关"></button>
       </div>
       <div class="shop-layout">
         <div class="shop-owner">
@@ -2217,9 +2419,10 @@
       </div>
       <div class="topbar">
         <span class="resource">评价 <b>甲上</b></span>
-        <span class="resource">气运 <b id="baseLuck">140</b></span>
+        <span class="resource">命尘 <b id="baseShard">0</b></span>
         <span class="resource">基地 <b>青崖峰</b></span>
         <button class="topbar-btn review-open">回顾</button>
+        <button class="topbar-btn quick-control-btn topbar-sound sound-toggle" aria-label="声音开关"></button>
       </div>
       <div class="base-grid">
         <button class="base-tile" data-title="传承台" data-desc="查看金鹏之心与万象传承。后续可装备传承之心、传承之魂与六个枝干部位。"><strong>传承台</strong><span>金鹏与万象</span></button>
@@ -2247,16 +2450,82 @@
     </div>
     <div id="toast" class="toast"></div>
     <div class="quick-controls">
-      <button id="soundToggleBtn" class="quick-control-btn" aria-label="声音开关"></button>
       <button id="skipStoryBtn" class="quick-control-btn" aria-label="跳过剧情"></button>
     </div>
   </div>
-  <div class="rotate-tip">请竖屏浏览本 Demo。<br />评委用手机打开链接即可完整体验新手流程。</div>
+  <div class="rotate-tip">请竖屏浏览本 Demo。<br />手机打开链接即可完整体验新手流程。</div>
 
   <script>
     const $ = (id) => document.getElementById(id);
 
-    function initAudio() {
+    const assetManifest = {
+      backgrounds: {
+        'bg-title': 'assets/cover_ming_card.jpg',
+        'bg-cottage': 'assets/bg_qingya_cottage.jpg',
+        'bg-attack': 'assets/bg_qingya_attack.jpg',
+        'bg-map1': 'assets/bg_fate_map_backhill.jpg',
+        'bg-map2': 'assets/bg_fate_map_tunnel.jpg',
+        'bg-battle': 'assets/bg_battle_minion.jpg',
+        'bg-boss': 'assets/bg_battle_boss.jpg',
+        'bg-shop': 'assets/bg_shop_sujinshu.jpg',
+        'bg-base': 'assets/bg_qingya_cottage.jpg'
+      },
+      portraits: {
+        'p-hero': 'assets/portrait_hero.png',
+        'p-qingtang': 'assets/portrait_qingtang.png',
+        'p-master': 'assets/portrait_master.png',
+        'p-merchant': 'assets/portrait_merchant.png',
+        'p-villain': 'assets/portrait_villain.png',
+        'p-redboss': 'assets/portrait_villain.png'
+      }
+    };
+
+    const preloadedImages = new Set();
+    const preloadedAudio = new Set();
+    let stagedPreloadStarted = false;
+
+    function preloadImage(src) {
+      if (!src || preloadedImages.has(src)) return Promise.resolve();
+      preloadedImages.add(src);
+      return new Promise(resolve => {
+        const img = new Image();
+        img.decoding = 'async';
+        img.onload = img.onerror = resolve;
+        img.src = src;
+      });
+    }
+
+    function preloadImagesNow(paths, concurrent = 3) {
+      const list = paths.filter(Boolean).filter(src => !preloadedImages.has(src));
+      if (!list.length) return Promise.resolve();
+      let cursor = 0;
+      const workers = Array.from({ length: Math.min(concurrent, list.length) }, async () => {
+        while (cursor < list.length) {
+          const src = list[cursor++];
+          await preloadImage(src);
+        }
+      });
+      return Promise.all(workers);
+    }
+
+    function preloadImages(paths, delay = 450) {
+      const list = paths.filter(Boolean).filter(src => !preloadedImages.has(src));
+      if (!list.length) return;
+      const run = () => {
+        preloadImagesNow(list, 2);
+      };
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(run, { timeout: delay + 900 });
+      } else {
+        setTimeout(run, delay);
+      }
+    }
+
+    function wait(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function ensureAudioObjects() {
       if (state.audio.ready) return;
       state.audio.ready = true;
       state.audio.bgmStory = new Audio('assets/bgm_qingya.mp3');
@@ -2264,7 +2533,7 @@
       [state.audio.bgmStory, state.audio.bgmBattle].forEach(a => {
         a.loop = true;
         a.volume = .42;
-        a.preload = 'auto';
+        a.preload = 'none';
       });
       state.audio.sfx = {
         page: new Audio('assets/sfx_page.mp3'),
@@ -2274,8 +2543,107 @@
       };
       Object.values(state.audio.sfx).forEach(a => {
         a.volume = .72;
-        a.preload = 'auto';
+        a.preload = 'none';
       });
+    }
+
+    function audioByKey(key) {
+      ensureAudioObjects();
+      return {
+        bgmStory: state.audio.bgmStory,
+        bgmBattle: state.audio.bgmBattle,
+        sfxPage: state.audio.sfx.page,
+        sfxStep: state.audio.sfx.step,
+        sfxHit: state.audio.sfx.hit,
+        sfxThunder: state.audio.sfx.thunder
+      }[key];
+    }
+
+    function preloadAudioNow(keys) {
+      keys.forEach(key => {
+        if (preloadedAudio.has(key)) return;
+        const audio = audioByKey(key);
+        if (!audio) return;
+        preloadedAudio.add(key);
+        audio.preload = key.startsWith('bgm') ? 'auto' : 'metadata';
+        audio.load();
+      });
+    }
+
+    async function startStagedPreload() {
+      if (stagedPreloadStarted) return;
+      stagedPreloadStarted = true;
+      const bg = assetManifest.backgrounds;
+      const p = assetManifest.portraits;
+
+      // 第 1 批：首屏和开头第一句必须完整，立即抢占。
+      await preloadImagesNow([bg['bg-title'], bg['bg-cottage'], p['p-master'], p['p-hero']], 4);
+
+      // 第 2 批：玩家可能立刻跳过剧情，先地图图，后非战斗 BGM。
+      await preloadImagesNow([bg['bg-map1']], 1);
+      preloadAudioNow(['bgmStory']);
+
+      // 第 3 批：开头剧情突变所需资源，避免雷击段和青棠出场刷图。
+      await wait(260);
+      await preloadImagesNow([bg['bg-attack'], p['p-villain'], p['p-qingtang']], 3);
+      preloadAudioNow(['sfxThunder', 'sfxPage', 'sfxStep']);
+
+      // 第 4 批：跳过后快速推进会遇到商店和第一场小怪，图优先，战斗 BGM 靠后。
+      await wait(320);
+      await preloadImagesNow([bg['bg-shop'], p['p-merchant']], 2);
+      await preloadImagesNow([bg['bg-battle']], 1);
+      preloadAudioNow(['bgmBattle', 'sfxHit']);
+
+      // 第 5 批：剩余资源补齐，此时正常网络下玩家已经在流程里了。
+      await wait(500);
+      await preloadImagesNow([bg['bg-map2'], bg['bg-boss'], bg['bg-base']], 2);
+    }
+
+    function assetForClass(el, group) {
+      return Object.entries(assetManifest[group]).find(([cls]) => el.classList.contains(cls))?.[1] || '';
+    }
+
+    function hydrateBackground(root) {
+      const targets = root.classList?.contains('painted-bg') ? [root] : [...root.querySelectorAll('.painted-bg')];
+      targets.forEach(el => {
+        const src = assetForClass(el, 'backgrounds');
+        if (src && el.dataset.loadedBg !== src) {
+          el.style.setProperty('--bg-image', `url("${src}")`);
+          el.dataset.loadedBg = src;
+        }
+      });
+    }
+
+    function hydratePortraits(root = document) {
+      const targets = root.classList?.contains('portrait') ? [root] : [...root.querySelectorAll('.portrait')];
+      targets.forEach(el => {
+        const src = assetForClass(el, 'portraits');
+        if (src && el.dataset.loadedPortrait !== src) {
+          el.style.setProperty('--portrait-image', `url("${src}")`);
+          el.dataset.loadedPortrait = src;
+        }
+      });
+    }
+
+    function loadScreenAssets(id) {
+      const screen = $(id);
+      if (!screen) return;
+      hydrateBackground(screen);
+      hydratePortraits(screen);
+    }
+
+    function prewarmForScreen(id) {
+      const bg = assetManifest.backgrounds;
+      const p = assetManifest.portraits;
+      if (id === 'titleScreen') preloadImages([bg['bg-cottage'], p['p-hero'], p['p-master']], 900);
+      if (id === 'storyScreen') preloadImages([bg['bg-attack'], bg['bg-map1'], p['p-qingtang'], p['p-villain']], 900);
+      if (id === 'mapScreen') preloadImages([bg['bg-shop'], bg['bg-battle'], bg['bg-map2'], p['p-merchant']], 700);
+      if (id === 'battleScreen') preloadImages([bg['bg-boss'], p['p-qingtang']], 700);
+      if (id === 'shopScreen') preloadImages([bg['bg-map2'], bg['bg-boss']], 700);
+    }
+
+    function initAudio() {
+      ensureAudioObjects();
     }
 
     function playSfx(type) {
@@ -2299,7 +2667,7 @@
     }
 
     function updateSoundButton() {
-      if ($('soundToggleBtn')) $('soundToggleBtn').classList.toggle('muted', state.audio.muted);
+      document.querySelectorAll('.sound-toggle').forEach(btn => btn.classList.toggle('muted', state.audio.muted));
     }
 
     function toggleSound() {
@@ -2321,9 +2689,9 @@
       if ($('skipStoryBtn')) $('skipStoryBtn').style.display = show ? 'block' : 'none';
     }
 
-    const state = {
-      player: {
-        name: '鸿明',
+    function makeInitialPlayer(name = '鸿明') {
+      return {
+        name,
         hp: 100,
         maxHp: 100,
         yuan: 10,
@@ -2333,7 +2701,11 @@
         atk: 15,
         def: 5,
         relics: []
-      },
+      };
+    }
+
+    const state = {
+      player: makeInitialPlayer(),
       logs: [],
       storyIndex: 0,
       mapLayer: 0,
@@ -2341,6 +2713,8 @@
       mapVisited: {},
       mapResolved: {},
       shopSeen: {},
+      shopOutroSeen: {},
+      fortuneDrawCount: 0,
       battle: null,
       lastNode: null,
       audio: { ctx: null, bgm: null, muted: false, ready: false }
@@ -2389,8 +2763,8 @@
           { id: 'bridge', x: 36, y: 68, type: 'event', label: '小道', icon: '缘' },
           { id: 'ring', x: 36, y: 50, type: 'treasure', label: '旧物', icon: '藏' },
           { id: 'shop1', x: 64, y: 50, type: 'shop', label: '茶棚', icon: '市' },
-          { id: 'minion', x: 40, y: 30, type: 'battle', label: '追兵', icon: '斗' },
-          { id: 'pond', x: 60, y: 12, type: 'stairs', label: '碧潭', icon: '阶' }
+          { id: 'minion', x: 64, y: 30, type: 'battle', label: '追兵', icon: '斗' },
+          { id: 'pond', x: 40, y: 12, type: 'stairs', label: '碧潭', icon: '阶' }
         ],
         edges: [[0, 1], [1, 4, 'blocked'], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6]]
       },
@@ -2399,16 +2773,16 @@
         bg: 'bg-map2',
         startText: '点击发光的相邻命运牌，继续穿过第二段牌阵。',
         nodes: [
-          { id: 'start2', x: 50, y: 86, type: 'start', label: '密道', icon: '符' },
-          { id: 'mechanism', x: 30, y: 68, type: 'event', label: '机关', icon: '缘' },
-          { id: 'trap', x: 70, y: 58, type: 'fortune', label: '问心', icon: '签' },
-          { id: 'mechanism2', x: 24, y: 49, type: 'event', label: '星门', icon: '缘' },
-          { id: 'trap2', x: 76, y: 40, type: 'fortune', label: '问心', icon: '签' },
-          { id: 'shop2', x: 50, y: 30, type: 'shop', label: '四象', icon: '市' },
-          { id: 'boss', x: 68, y: 17, type: 'boss', label: '执事', icon: '魔' },
-          { id: 'exit', x: 50, y: 10, type: 'exit', label: '撤离', icon: '归' }
+          { id: 'start2', x: 32, y: 84, type: 'start', label: '密道', icon: '符' },
+          { id: 'mechanism', x: 32, y: 66, type: 'event', label: '机关', icon: '缘' },
+          { id: 'trap', x: 32, y: 48, type: 'fortune', label: '问心', icon: '签' },
+          { id: 'trap2', x: 62, y: 66, type: 'fortune', label: '问心', icon: '签' },
+          { id: 'mechanism2', x: 62, y: 48, type: 'event', label: '星门', icon: '缘' },
+          { id: 'shop2', x: 62, y: 30, type: 'shop', label: '四象', icon: '市' },
+          { id: 'boss', x: 46, y: 16, type: 'boss', label: '执事', icon: '魔' },
+          { id: 'exit', x: 70, y: 8, type: 'exit', label: '撤离', icon: '归' }
         ],
-        edges: [[0, 1], [1, 2], [1, 3], [3, 4], [2, 5], [4, 5], [5, 6], [6, 7]]
+        edges: [[0, 1], [1, 2], [1, 3], [2, 4], [3, 4], [4, 5], [5, 6], [6, 7]]
       }
     ];
 
@@ -2426,8 +2800,8 @@
         text: '这条小道还通着。师兄，快，从这里绕过去。',
         choices: [
           { text: '以真元托起断木（推荐）', result: '你以真元托起断木，带青棠越过山涧。\n\n获得追兵掉落的残余气运 +5', luck: 5 },
-          { text: '抱起青棠踏石而过', locked: true, hint: '新手教程：请先选择推荐路线，学习命运牌事件结算。' },
-          { text: '沿溪绕路', locked: true, hint: '新手教程：请先选择推荐路线，学习命运牌事件结算。' }
+          { text: '抱起青棠踏石而过', locked: true, hint: '请先选择推荐项。' },
+          { text: '沿溪绕路', locked: true, hint: '请先选择推荐项。' }
         ],
         luck: 0
       },
@@ -2452,8 +2826,8 @@
         text: '这是爹爹以前教过我的阵图……第三颗星应该在这里。',
         choices: [
           { text: '听青棠的，点亮第三颗星（推荐）', result: '青棠指尖落在星图第三处，石门缓缓打开。\n\n机关深处滚出一枚青铜钱。\n气运 +10', luck: 10 },
-          { text: '强行破门', locked: true, hint: '新手教程：这里要让青棠展示作用，请选择推荐项。' },
-          { text: '寻找其他机关', locked: true, hint: '新手教程：请选择推荐项，继续推进流程。' }
+          { text: '强行破门', locked: true, hint: '请先选择推荐项。' },
+          { text: '寻找其他机关', locked: true, hint: '请先选择推荐项。' }
         ]
       },
       trap: {
@@ -2461,8 +2835,10 @@
         speaker: '系统',
         text: '脚下石板忽然一沉，头顶碎石簌簌落下。\n抽取一支命签，判定结果。',
         fortune: true,
-        result: '你抽中了大吉。\n气运 +50',
-        luck: 50
+        fortunes: [
+          { label: '大吉', luck: 50 },
+          { label: '吉', luck: 20 }
+        ]
       },
       mechanism2: {
         title: '机缘 · 星门残纹',
@@ -2470,8 +2846,8 @@
         text: '这里也有爹爹留下的星纹。师兄，我能认出来一部分。',
         choices: [
           { text: '让青棠辨认星纹（推荐）', result: '青棠按住第三道星纹，石壁露出另一条通往商店的暗路。\n\n气运 +10', luck: 10 },
-          { text: '直接穿过星门', locked: true, hint: '新手教程：请选择推荐项，让青棠展示阵法作用。' },
-          { text: '绕开星门', locked: true, hint: '新手教程：先走青棠认出的路线。' }
+          { text: '直接穿过星门', locked: true, hint: '请先选择推荐项。' },
+          { text: '绕开星门', locked: true, hint: '请先选择推荐项。' }
         ]
       },
       trap2: {
@@ -2479,8 +2855,10 @@
         speaker: '系统',
         text: '侧道石壁忽然亮起，四支命签悬在半空。\n抽取一支命签，判定结果。',
         fortune: true,
-        result: '你抽中了大吉。\n气运 +50',
-        luck: 50
+        fortunes: [
+          { label: '大吉', luck: 50 },
+          { label: '吉', luck: 20 }
+        ]
       },
       shop2: { shop: 'shop2' },
       exit: {
@@ -2488,7 +2866,7 @@
         speaker: '系统',
         bg: 'cottage',
         text: '青崖峰残片被师尊切割出来，漂浮在阎浮星海深处。',
-        result: '黑袍首领退去后，师尊以最后一剑斩断青崖峰山脉，将半座山峰送入阎浮星海。\n\n师尊没有跟上来。只留下一枚裂开的命字牌，悬在残峰山门之前。\n\n青棠：师兄，师尊把青崖峰交给我们了。\n\n本次世界：青木界 · 青崖峰残片\n评价：甲上\n击败敌人：2\n获得气运：140\n解锁基地：青崖峰',
+        result: () => `黑袍首领退去后，师尊以最后一剑斩断青崖峰山脉，将半座山峰送入阎浮星海。\n\n师尊没有跟上来。只留下一枚裂开的命字牌，悬在残峰山门之前。\n\n青棠：师兄，师尊把青崖峰交给我们了。\n\n本次世界：青木界 · 青崖峰残片\n评价：甲上\n击败敌人：2\n带走命尘：${state.player.qiPool}\n解锁基地：青崖峰`,
         goBase: true
       }
     };
@@ -2503,10 +2881,10 @@
           { speaker: '苏锦书', text: '初次见面，卖你一件便宜货。青龙玉佩，十五气运。' }
         ],
         items: [
-          { id: 'taixu', name: '太虚归元镜', price: 3000, icon: '镜', desc: '顶级法宝。可照见一条世界命运线。现在你买不起。' },
-          { id: 'feijian', name: '九霄飞剑匣', price: 2800, icon: '剑', desc: '顶级法宝。可让剑修传承额外触发一次。现在你买不起。' },
           { id: 'qinglong', name: '青龙玉佩', price: 15, icon: '玉', required: true, desc: '你打出包含相同点数的牌型时，每有一组相同点数，额外造成 +10 伤害。' },
-          { id: 'yunlu', name: '回元云露', price: 90, icon: '露', desc: '恢复 3 点真元。现在你买不起，但能看出真元也可以通过商店补给。' }
+          { id: 'yunlu', name: '回元云露', price: 90, icon: '露', type: 'consumable', yuan: 3, desc: '购买后立刻恢复 3 点真元。现在你买不起，但能看出真元也可以通过商店补给。' },
+          { id: 'taixu', name: '太虚归元镜', price: 3000, icon: '镜', desc: '顶级法宝。可照见一条世界命运线。现在你买不起。' },
+          { id: 'feijian', name: '九霄飞剑匣', price: 2800, icon: '剑', desc: '顶级法宝。可让剑修传承额外触发一次。现在你买不起。' }
         ],
         outro: '拿好。仿品归仿品，打架时能救命。',
         outroLines: [
@@ -2521,13 +2899,13 @@
           { speaker: '主角', text: '我们没有后路。' },
           { speaker: '苏锦书', text: '想请我出手？你出不起。' },
           { speaker: '苏锦书', text: '不过……你们这命数有点意思。今天心情好，给你们抹个零头。' },
-          { speaker: '苏锦书', text: '她一挥手，三件宝物标价从几千气运，被抹成了几十。' }
+          { speaker: '旁白', text: '她一挥手，三件宝物标价从几千气运，被抹成了几十。' }
         ],
         items: [
           { id: 'baihu', name: '白虎坠', price: 30, icon: '虎', required: true, desc: '你打出三条或四条时，本次牌型倍率 x2。' },
           { id: 'zhuque', name: '朱雀翎', price: 30, icon: '羽', required: true, desc: '你打出相同点数牌型时，参与计分的每张相同点数牌额外 +8 伤害。' },
           { id: 'xuanwu', name: '玄武珠', price: 30, icon: '珠', required: true, desc: '你打出四条时，最终倍率再 x2。' },
-          { id: 'canglin', name: '苍麟护符', price: 900, icon: '麟', desc: '顶级四象法宝。强化所有对子牌型。演示中暂不开放。' }
+          { id: 'canglin', name: '苍麟护符', price: 900, icon: '麟', desc: '顶级四象法宝。强化所有对子牌型。这次你买不起。' }
         ],
         outro: '祝你好运。我可不想再从那些人手里把这套东西拿回来，费手脚。',
         outroLines: [
@@ -2613,7 +2991,7 @@
             hint: '这是传承牌教学。先点击弹起的金鹏之心查看详情；随后选中 ♦K、♠K、♣2、♦4、♥5，至少凑出一对压过敌方意图。',
             preTalk: { speaker: '青棠', text: '师兄，那张金色边框的牌在发光。' },
             cardInspect: '金鹏之心',
-            forceText: '请按教程打出包含金鹏之心的一对 K',
+            forceText: '请先打出包含金鹏之心的一对 K',
             intent: { name: '黑雾压身', pressure: 80, damage: 22 },
             damage: 102,
             calc: { base: 31, flat: 20, mult: 2 },
@@ -2672,7 +3050,10 @@
     function switchScreen(id) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       $(id).classList.add('active');
+      loadScreenAssets(id);
+      prewarmForScreen(id);
       document.body.classList.toggle('battle-active', id === 'battleScreen');
+      document.body.classList.toggle('story-active', id === 'storyScreen');
       setSkipStoryVisible(false);
       if (document.querySelector('.quick-controls')) {
         document.querySelector('.quick-controls').style.display = id === 'titleScreen' ? 'none' : 'grid';
@@ -2682,8 +3063,8 @@
     function updateResources() {
       ['resHp', 'battleHp'].forEach(id => { if ($(id)) $(id).textContent = state.player.hp; });
       ['resYuan'].forEach(id => { if ($(id)) $(id).textContent = state.player.yuan; });
-      ['resLuck', 'battleLuck', 'baseLuck', 'storyLuck', 'shopLuck'].forEach(id => { if ($(id)) $(id).textContent = state.player.luck; });
-      ['resPool', 'battlePool'].forEach(id => { if ($(id)) $(id).textContent = state.player.qiPool; });
+      ['resLuck', 'battleLuck', 'storyLuck', 'shopLuck'].forEach(id => { if ($(id)) $(id).textContent = state.player.luck; });
+      ['resPool', 'battlePool', 'baseShard'].forEach(id => { if ($(id)) $(id).textContent = state.player.qiPool; });
     }
 
     function showToast(text, ms = 1600) {
@@ -2692,6 +3073,36 @@
       el.classList.add('active');
       clearTimeout(showToast.timer);
       showToast.timer = setTimeout(() => el.classList.remove('active'), ms);
+    }
+
+    function showResourceFloat(anchorId, text, className = '') {
+      const anchor = $(anchorId);
+      if (!anchor) return;
+      const appRect = $('app').getBoundingClientRect();
+      const rect = anchor.getBoundingClientRect();
+      const el = document.createElement('div');
+      el.className = `resource-float ${className}`;
+      el.textContent = text;
+      el.style.left = `${rect.left - appRect.left + rect.width / 2 - 12}px`;
+      el.style.top = `${rect.top - appRect.top + 2}px`;
+      $('app').appendChild(el);
+      setTimeout(() => el.remove(), 1200);
+    }
+
+    function resetRunState(keepName = true) {
+      const name = keepName ? state.player.name : '鸿明';
+      state.player = makeInitialPlayer(name);
+      state.mapLayer = 0;
+      state.mapPos = 0;
+      state.mapVisited = { '0:start': true };
+      state.mapResolved = {};
+      state.shopSeen = {};
+      state.shopOutroSeen = {};
+      state.shopRefreshSeen = {};
+      state.fortuneDrawCount = 0;
+      state.battle = null;
+      state.lastNode = null;
+      state.mapDealt = false;
     }
 
     function showModal(title, text) {
@@ -2709,6 +3120,8 @@
     function closeModal() {
       $('modal').classList.remove('active');
       $('modalText').innerHTML = '';
+      $('modalClose').textContent = '关闭';
+      $('modalClose').onclick = closeModal;
     }
 
     function addLog(title, text) {
@@ -2772,7 +3185,7 @@
       if (!state.battle) return;
       const cards = makeDeckCards(state.battle.deckSort || 'suit');
       const html = `<div class="review-entry"><strong>完整牌组</strong>
-      当前排序：${state.battle.deckSort === 'rank' ? '按数字' : '按花色'}。Demo 使用标准 52 张战斗牌，传承牌和万象牌是额外加入的特殊牌。</div>
+      当前排序：${state.battle.deckSort === 'rank' ? '按数字' : '按花色'}。当前牌组使用标准 52 张战斗牌，传承牌和万象牌是额外加入的特殊牌。</div>
       <div class="deck-grid">${cards.map(card => `<div class="deck-card">${suitSymbol(card.suit)}${rankLabel(card.value)}</div>`).join('')}</div>`;
       showModalHtml('查看牌组', html);
     }
@@ -2804,6 +3217,7 @@
       const bg = $('storyBg');
       const className = kind === 'attack' ? 'bg-attack' : kind === 'shop' ? 'bg-shop' : kind === 'map1' ? 'bg-map1' : kind === 'map2' ? 'bg-map2' : 'bg-cottage';
       bg.className = 'painted-bg ' + className;
+      hydrateBackground(bg);
       $('sceneVoid').style.display = kind === 'attack' ? 'block' : 'none';
       $('sceneCottage').style.display = kind === 'attack' ? 'none' : 'block';
       if ($('storyPlace')) $('storyPlace').textContent = kind === 'attack' ? '青崖峰 · 黑雾袭山' : kind === 'shop' ? '阎浮行商铺' : kind === 'map1' ? '青崖峰后山 · 逃亡' : kind === 'map2' ? '青崖峰后山 · 密道' : '青崖峰';
@@ -2832,6 +3246,7 @@
       const side = role === 'hero' ? 'left' : 'right';
       holder.className = `dialog-role ${side} active`;
       holder.innerHTML = roles[role];
+      hydratePortraits(holder);
     }
 
     function replaceName(text) {
@@ -2841,6 +3256,7 @@
     function renderStory() {
       const item = story[state.storyIndex];
       if (!item) return startMap();
+      $('storyScreen').classList.remove('event-dialog', 'shop-dialog', 'choice-dialog');
       setStoryBg(item.bg);
       $('storySpeaker').textContent = replaceName(item.speaker);
       renderRoles(item.speaker);
@@ -2880,6 +3296,9 @@
       state.mapVisited = { '0:start': true };
       state.mapResolved = {};
       state.shopSeen = {};
+      state.shopOutroSeen = {};
+      state.fortuneDrawCount = 0;
+      state.mapDealt = false;
       switchScreen('mapScreen');
       renderMap();
     }
@@ -2888,9 +3307,11 @@
       updateResources();
       const layer = maps[state.mapLayer];
       $('mapBg').className = 'painted-bg ' + layer.bg;
+      hydrateBackground($('mapBg'));
       $('mapTitle').textContent = layer.title;
       $('mapPanelTitle').textContent = layer.title;
-      $('mapPanelText').textContent = '点击发光的相邻命运牌，或使用右下角方向键选择路线。每移动一步消耗真元 1；真元不足时改为气血 -5。';
+      const blockedShown = Boolean(state.mapResolved[mapVisitKey(state.mapLayer, 'roadblock')]);
+      $('mapPanelText').textContent = '点击发光的相邻命运牌，或使用右下角方向键选择路线。每移动一步需要消耗真元1点，并恢复气血5点；真元不足时，每一步需要消耗气血5点。' + (blockedShown ? ' 红色断裂路线已经被黑衣人封死，无法通行。' : '');
 
       const mapEl = $('fateMap');
       mapEl.innerHTML = '';
@@ -2905,6 +3326,7 @@
         el.className = 'fate-node' + (visited ? ' flipped' : '') + (idx === state.mapPos ? ' current' : '') + (isAvailable ? ' available' : '') + (isBlocked ? ' blocked' : '') + (isDanger ? ' danger' : '');
         el.dataset.node = node.id;
         el.style.setProperty('--i', idx);
+        el.style.setProperty('--front-mark', `"${mapFaceMark(node)}"`);
         if (isDanger) el.style.setProperty('--back-mark', '"战"');
         if (!state.mapDealt) el.classList.add('dealing');
         el.style.left = node.x + '%';
@@ -2913,7 +3335,7 @@
           <div class="fate-node-inner">
             <div class="fate-face fate-back"></div>
             <div class="fate-face fate-front">
-              <div class="fate-icon">${node.icon}</div>
+              <div class="fate-icon">${mapFaceMark(node)}</div>
               <div class="fate-label">${node.label}</div>
             </div>
           </div>`;
@@ -2929,23 +3351,62 @@
       state.mapDealt = true;
     }
 
+    function mapFaceMark(node) {
+      const map = {
+        start: '起',
+        event: '事',
+        treasure: '藏',
+        fortune: '签',
+        shop: '商',
+        battle: '战',
+        boss: '战',
+        stairs: '转',
+        exit: '终'
+      };
+      return map[node.type] || node.icon || '命';
+    }
+
     function drawLines(container, nodes) {
       const layer = maps[state.mapLayer];
+      const w = container.clientWidth || 1;
+      const h = container.clientHeight || 1;
       const edges = layer.edges || nodes.slice(1).map((_, i) => [i, i + 1]);
       edges.forEach(edge => {
         const [from, to, kind] = edge;
         const a = nodes[from], b = nodes[to];
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
+        const ax = a.x / 100 * w;
+        const ay = a.y / 100 * h;
+        const bx = b.x / 100 * w;
+        const by = b.y / 100 * h;
+        const dx = bx - ax;
+        const dy = by - ay;
         const len = Math.sqrt(dx * dx + dy * dy);
-        const line = document.createElement('div');
         const showBlocked = kind === 'blocked' && state.mapResolved[mapVisitKey(state.mapLayer, 'roadblock')];
-        line.className = 'path-line' + (showBlocked ? ' blocked' : '');
-        line.style.left = a.x + '%';
-        line.style.top = a.y + '%';
-        line.style.width = len + '%';
-        line.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
-        container.appendChild(line);
+        const angle = Math.atan2(dy, dx);
+        const trim = Math.min(34, len * .32);
+        const ux = dx / len;
+        const uy = dy / len;
+        const startX = ax + ux * trim;
+        const startY = ay + uy * trim;
+        const usable = Math.max(0, len - trim * 2);
+        const addLine = (x, y, width, className, label = '') => {
+          const line = document.createElement('div');
+          line.className = className;
+          line.style.left = x + 'px';
+          line.style.top = y + 'px';
+          line.style.width = width + 'px';
+          line.style.transform = `rotate(${angle}rad)`;
+          if (label) line.setAttribute('aria-label', label);
+          container.appendChild(line);
+        };
+        if (showBlocked) {
+          const gap = Math.min(36, usable * .24);
+          const seg = Math.max(0, (usable - gap) / 2);
+          addLine(startX, startY, seg, 'path-line blocked', '断裂封锁路线，不可通行');
+          addLine(startX + ux * (seg + gap), startY + uy * (seg + gap), seg, 'path-line blocked', '断裂封锁路线，不可通行');
+          return;
+        }
+        addLine(startX, startY, usable, 'path-line');
       });
     }
 
@@ -3001,7 +3462,13 @@
       }
       setTimeout(() => {
         const el = document.querySelector(`.fate-node[data-node="${node.id}"]`);
-        if (el) el.classList.add('flipped');
+        if (el) {
+          el.classList.add('flipping');
+          setTimeout(() => {
+            el.classList.add('flipped');
+            el.classList.remove('flipping');
+          }, 780);
+        }
         state.mapVisited[visitKey] = true;
         $('mapPanelText').textContent = `「${node.label}」命运牌已经翻开。`;
         playSfx('page');
@@ -3028,10 +3495,10 @@
     function showResourceHelp(label) {
       const map = {
         '气血': '气血代表角色当前生命。斗法拼刀失败或真元耗尽强行赶路都会损失气血；气血归零则逃亡失败。',
-        '真元': '真元是探索移动资源。每移动一步消耗真元 1；真元不足时仍可移动，但每步改为气血 -5。',
+        '真元': '真元是探索移动资源。每移动一步需要消耗真元1点，并恢复气血5点；真元不足时，每一步需要消耗气血5点。',
         '气运': '气运是本次世界中的货币和奖励，可在商店购买宝物，也用于展示冒险收益。',
-        '气运池': '气运池记录斗法中打出的伤害分，会在战斗中持续累积，帮助玩家理解自己的输出成长。',
-        '人和技': '人和技是角色主动能力。本 Demo 中为青崖剑诀，可改写一张手牌点数。'
+        '命尘': '斗法中击溃敌人后凝成的命数余烬。撤离时可带回基地，用于后续养成。',
+        '人和技': '人和技是角色主动能力。当前版本中为青崖剑诀，可改写一张手牌点数。'
       };
       showModal(label, map[label] || '这是当前状态信息。');
     }
@@ -3039,9 +3506,11 @@
     function payMoveCost() {
       if (state.player.yuan > 0) {
         state.player.yuan -= 1;
+        state.player.hp = Math.min(state.player.maxHp, state.player.hp + 5);
         updateResources();
-        showToast('真元 -1');
-        addLog('资源变化', `移动消耗真元 -1，当前真元 ${state.player.yuan}`);
+        showResourceFloat('resHp', '+5');
+        showToast('真元 -1，气血 +5');
+        addLog('资源变化', `移动消耗真元 -1，气血回复 5，当前真元 ${state.player.yuan}，气血 ${state.player.hp}`);
         return true;
       }
       state.player.hp = Math.max(0, state.player.hp - 5);
@@ -3062,13 +3531,7 @@
         $('modalClose').textContent = '关闭';
         $('modalClose').onclick = closeModal;
         closeModal();
-        state.player.hp = state.player.maxHp;
-        state.player.yuan = state.player.maxYuan;
-        state.mapLayer = 0;
-        state.mapPos = 0;
-        state.mapVisited = { '0:start': true };
-        state.mapResolved = {};
-        state.mapDealt = false;
+        resetRunState(true);
         switchScreen('mapScreen');
         renderMap();
       };
@@ -3104,6 +3567,8 @@
     }
 
     function openEvent(data) {
+      $('storyScreen').classList.remove('shop-dialog', 'choice-dialog');
+      $('storyScreen').classList.add('event-dialog');
       $('storySpeaker').textContent = data.speaker || '系统';
       $('storyText').textContent = replaceName(data.text || '');
       $('nameForm').style.display = 'none';
@@ -3124,13 +3589,14 @@
       }
 
       if (data.choices) {
+        $('storyScreen').classList.add('choice-dialog');
         data.choices.forEach(choice => {
           const btn = document.createElement('button');
           btn.className = 'choice-btn';
           btn.textContent = choice.text;
           btn.onclick = () => {
             if (choice.locked) {
-              showToast(choice.hint || '当前教程请先选择推荐项');
+              showToast(choice.hint || '请先选择推荐项');
               return;
             }
             showEventResult({ ...data, result: choice.result, luck: choice.luck ?? data.luck });
@@ -3174,21 +3640,64 @@
         $('storyText').textContent = replaceName(data.text + '\n\n命签摊开：吉、吉、大吉、凶。\n它们翻面后在你眼前快速交错。\n\n请选择一张。');
         board.querySelectorAll('.fortune-card').forEach(card => {
           card.classList.add('selectable');
-          card.onclick = () => showEventResult(data);
+          card.onclick = () => revealFortuneCard(board, card, data);
         });
       }, 6800);
     }
 
+    function revealFortuneCard(board, selectedCard, data) {
+      const fortune = getFortuneOutcome(data);
+      board.querySelectorAll('.fortune-card').forEach(card => {
+        card.classList.remove('selectable');
+        card.onclick = null;
+        card.disabled = true;
+        if (card !== selectedCard) card.style.opacity = '.42';
+      });
+      const front = selectedCard.querySelector('.fortune-card-front');
+      if (front) front.textContent = fortune.label;
+      selectedCard.disabled = false;
+      selectedCard.classList.remove('face-down');
+      selectedCard.classList.add('revealed');
+      const resolvedData = {
+        ...data,
+        luck: fortune.luck,
+        result: `你抽中了${fortune.label}。\n气运 +${fortune.luck}`
+      };
+      state.fortuneDrawCount += 1;
+      const resultText = resolvedData.result;
+      $('storyText').textContent = replaceName(`你翻开命签，签面金光亮起：${fortune.label}。\n\n${resultText}`);
+      addLog(data.title || '命运牌', resultText);
+      $('storyActions').style.display = 'flex';
+      $('storyNextBtn').textContent = resolvedData.goBase ? '返回青崖峰' : '返回牌阵';
+      $('storyNextBtn').onclick = () => {
+        $('storyNextBtn').onclick = nextStory;
+        finishEventResult(resolvedData);
+      };
+      playSfx('page');
+    }
+
+    function getFortuneOutcome(data) {
+      const list = data.fortunes || [{ label: '大吉', luck: data.luck || 50 }];
+      return list[Math.min(state.fortuneDrawCount, list.length - 1)];
+    }
+
     function showEventResult(data) {
+      $('storyScreen').classList.remove('choice-dialog');
       $('storySpeaker').textContent = data.title || '命运牌';
       renderRoles(null);
-      $('storyText').textContent = replaceName(data.result || '命运继续向前。');
-      addLog(data.title || '命运牌', data.result || '命运继续向前。');
+      const resultText = typeof data.result === 'function' ? data.result() : (data.result || '命运继续向前。');
+      $('storyText').textContent = replaceName(resultText);
+      addLog(data.title || '命运牌', resultText);
       $('storyChoices').style.display = 'none';
       $('storyActions').style.display = 'flex';
       $('storyNextBtn').textContent = data.goBase ? '返回青崖峰' : '返回牌阵';
       $('storyNextBtn').onclick = () => {
         $('storyNextBtn').onclick = nextStory;
+        finishEventResult(data);
+      };
+    }
+
+    function finishEventResult(data) {
         if (data.luck) state.player.luck += data.luck;
         if (data.luck) {
           updateResources();
@@ -3210,7 +3719,6 @@
           return;
         }
         if (data.goBase) {
-          state.player.luck = Math.max(state.player.luck, 140);
           switchScreen('baseScreen');
           updateResources();
           return;
@@ -3219,7 +3727,6 @@
         if (currentNode) state.mapResolved[mapVisitKey(state.mapLayer, currentNode.id)] = true;
         switchScreen('mapScreen');
         renderMap();
-      };
     }
 
     function openShop(id, skipIntro = false) {
@@ -3234,6 +3741,8 @@
     }
 
     function playShopDialogue(lines, onDone, finalButtonText) {
+      $('storyScreen').classList.remove('event-dialog', 'choice-dialog');
+      $('storyScreen').classList.add('shop-dialog');
       let idx = 0;
       const renderLine = () => {
         const line = lines[idx];
@@ -3266,6 +3775,14 @@
       $('shopSpeaker').textContent = shop.speaker;
       $('shopIntro').textContent = '货架已经摆好。看中什么就自己拿，气运够就成交。';
       $('shopShelf').innerHTML = '';
+      const refresh = document.createElement('button');
+      refresh.className = 'shop-refresh';
+      refresh.textContent = '刷新 150气运';
+      refresh.onclick = () => {
+        if (state.player.luck < 150) return showToast('气运不足，无法刷新货架');
+        showToast('行商只愿给你看这一批货');
+      };
+      $('shopShelf').appendChild(refresh);
       updateResources();
 
       shop.items.forEach(item => {
@@ -3276,15 +3793,25 @@
         row.className = 'dialog-actions';
         const buy = document.createElement('button');
         buy.className = 'primary-btn';
-        buy.textContent = state.player.relics.includes(item.id) ? '已购买' : state.player.luck < item.price ? '气运不足' : '购买';
-        buy.disabled = state.player.relics.includes(item.id) || state.player.luck < item.price;
+        const owned = item.type !== 'consumable' && state.player.relics.includes(item.id);
+        buy.textContent = owned ? '已购买' : state.player.luck < item.price ? '气运不足' : '购买';
+        buy.disabled = owned || state.player.luck < item.price;
         buy.onclick = () => {
           if (state.player.luck < item.price) return showToast('气运不足');
           state.player.luck -= item.price;
-          state.player.relics.push(item.id);
+          if (item.type === 'consumable') {
+            state.player.yuan = Math.min(state.player.maxYuan, state.player.yuan + (item.yuan || 0));
+          } else {
+            state.player.relics.push(item.id);
+          }
           updateResources();
-          buy.textContent = '已购买';
-          buy.disabled = true;
+          if (item.type === 'consumable') {
+            buy.textContent = state.player.luck < item.price ? '气运不足' : '购买';
+            buy.disabled = state.player.luck < item.price;
+          } else {
+            buy.textContent = '已购买';
+            buy.disabled = true;
+          }
           document.querySelectorAll('#shopShelf .shop-card').forEach(card => {
             const btn = card.querySelector('.primary-btn');
             const price = Number(btn && btn.dataset.price);
@@ -3293,7 +3820,7 @@
               btn.disabled = true;
             }
           });
-          showToast(`获得 ${item.name}`);
+          showToast(item.type === 'consumable' ? `真元 +${item.yuan || 0}` : `获得 ${item.name}`);
           addLog('商店购买', `购买 ${item.name}，消耗气运 ${item.price}。\n${item.desc}`);
         };
         buy.dataset.price = item.price;
@@ -3309,14 +3836,23 @@
       $('shopLeaveBtn').onclick = () => {
         const missing = shop.items.filter(item => item.required && !state.player.relics.includes(item.id));
         if (missing.length) {
-          showToast('这是新手演示，请先购买关键遗物');
+          showToast('这几件正好用得上，先备齐再走');
           return;
         }
-        playShopDialogue(shop.outroLines || [{ speaker: shop.speaker, text: shop.outro }], () => {
+        const skipOutro = Boolean(state.shopOutroSeen[id]);
+        const returnToMap = () => {
           const currentNode = maps[state.mapLayer].nodes[state.mapPos];
           if (currentNode) state.mapResolved[mapVisitKey(state.mapLayer, currentNode.id)] = true;
           switchScreen('mapScreen');
           renderMap();
+        };
+        if (skipOutro) {
+          returnToMap();
+          return;
+        }
+        playShopDialogue(shop.outroLines || [{ speaker: shop.speaker, text: shop.outro }], () => {
+          state.shopOutroSeen[id] = true;
+          returnToMap();
         }, '返回牌阵');
       };
       switchScreen('shopScreen');
@@ -3336,6 +3872,7 @@
         inspectMode: false,
         deckSort: 'suit',
         rulesSeen: false,
+        shardsEarned: 0,
         complete: false
       };
       $('battleBg').className = 'painted-bg ' + script.bg;
@@ -3375,6 +3912,7 @@
       $('battleDialogueText').textContent = replaceName(text);
       const role = speakerToRole(speaker) || 'qingtang';
       $('battleDialoguePortrait').className = 'portrait ' + (role === 'hero' ? 'p-hero' : role === 'merchant' ? 'p-merchant' : role === 'master' ? 'p-master' : role === 'villain' ? 'p-villain' : 'p-qingtang');
+      hydratePortraits($('battleDialoguePortrait'));
       if (String(text).includes('护着你')) $('battleDialoguePortrait').classList.add('flash');
       $('battleDialoguePortrait').setAttribute('data-label', replaceName(speaker));
       $('battleDialogue').classList.add('active');
@@ -3540,7 +4078,7 @@
         '朱雀翎': '你打出相同点数牌型时，参与计分的每张相同点数牌额外 +8 伤害。',
         '玄武珠': '你打出四条时，最终倍率再 x2。',
         '金鹏之心': '已激活后，每回合抽牌完成时改写最后抽到的牌，帮助凑相同点数。',
-        '天时牌·未翻开': 'Boss 战教学：天时牌代表战斗环境变化。本 Demo 中第一张天时牌暂时背面朝上，Boss 战第 2 回合后翻开为“黑雾压境”。',
+        '天时牌·未翻开': '天时牌代表战斗环境变化。第一张天时牌暂时背面朝上，后续回合会翻开为“黑雾压境”。',
         '天时牌·黑雾压境': '公共战场牌：黑雾压境。黑雾扰乱双方命数，拼刀败者造成的伤害更低。',
         '天时牌·风雷相激': '公共战场牌：风雷相激。从第 2 回合开始，每回合会翻开 1 张天时牌，对双方同时生效。本回合压制成功后的伤害倍率提升到 110%。'
       }[name] || '暂无说明。';
@@ -3696,7 +4234,14 @@
       const fullScore = Math.round((calc.base + calc.flat) * calc.mult * weatherMult);
       const estimate = Math.round(fullScore * ratio);
       const ok = !turn.intent || estimate >= turn.intent.pressure;
-      $('comboPreview').innerHTML = `<strong>当前组合：${turn.pattern}</strong>预计分数 ${calc.base + calc.flat} × ${Number((calc.mult * weatherMult).toFixed(2))} = <span class="${ok ? 'score-ok' : 'score-bad'}">${estimate}</span>`;
+      const mult = Number((calc.mult * weatherMult).toFixed(2));
+      $('comboPreview').innerHTML = `
+        <div class="combo-meter">
+          <div class="combo-pill"><span>当前牌型</span><b>${turn.pattern}</b></div>
+          <div class="combo-pill"><span>基础+遗物</span><b>${calc.base}+${calc.flat}=${calc.base + calc.flat}</b></div>
+          <div class="combo-pill"><span>倍率</span><b>×${mult}</b></div>
+          <div class="combo-pill"><span>预计伤害分</span><b class="${ok ? 'score-ok' : 'score-bad'}">${estimate}</b></div>
+        </div>`;
     }
 
     function cardBase(card) {
@@ -3800,13 +4345,14 @@
         script.hp = Math.max(0, script.hp - duel.enemyTaken);
         state.player.hp = Math.max(1, state.player.hp - duel.playerTaken);
         state.player.qiPool += duel.enemyTaken;
+        battle.shardsEarned += duel.enemyTaken;
         battle.hand = battle.hand.filter((_, idx) => !played.has(idx));
         battle.selected = [];
         updateEnemy();
         updateResources();
         renderRelics(turn.relics || []);
         renderHand();
-        showToast(`气运池 +${duel.enemyTaken}`);
+        showToast(`命尘 +${duel.enemyTaken}`);
         if (turn.pattern === '四条' || turn.pattern === '五条 A') {
           $('app').style.animation = 'shake .45s ease';
           setTimeout(() => $('app').style.animation = '', 480);
@@ -3872,7 +4418,7 @@
       el.style.left = leftPercent + '%';
       el.style.top = topPercent + '%';
       $('battleScreen').appendChild(el);
-      setTimeout(() => el.remove(), 1100);
+      setTimeout(() => el.remove(), 1700);
     }
 
     function showRelicFloat(text) {
@@ -3880,7 +4426,7 @@
       el.className = 'relic-float';
       el.textContent = text;
       $('battleScreen').appendChild(el);
-      setTimeout(() => el.remove(), 1100);
+      setTimeout(() => el.remove(), 1900);
     }
 
     function showPlayerHit(num) {
@@ -3946,25 +4492,42 @@
       b.complete = true;
       state.player.luck += b.script.rewardLuck || 0;
       updateResources();
-      if (b.script.rewardLuck) addLog('战斗结算', `获得气运 +${b.script.rewardLuck}，当前气运 ${state.player.luck}。\n本局累计气运池：${state.player.qiPool}`);
-      setBattleLog('战斗胜利', b.script.completeText);
+      if (b.script.rewardLuck) addLog('战斗结算', `获得气运 +${b.script.rewardLuck}，当前气运 ${state.player.luck}。\n本局累计命尘：${state.player.qiPool}`);
+      const shardText = `本战造成伤害 ${b.shardsEarned}，获得命尘 ${b.shardsEarned}。\n当前累计命尘：${state.player.qiPool}。`;
+      setBattleLog('战斗胜利', `${b.script.completeText}\n\n${shardText}`);
       renderHand([]);
       $('playBtn').disabled = true;
       $('skillBtn').disabled = true;
       if (b.script.id === 'boss') {
-        $('hintBtn').textContent = '继续剧情';
-        $('hintBtn').onclick = startClimax;
+        $('hintBtn').textContent = '查看结算';
+        $('hintBtn').onclick = () => {
+          showModal('Boss 战胜利', `黑雾执事已经被击败。\n\n${shardText}\n\n黑袍首领正在逼近。`);
+          $('modalClose').textContent = '继续剧情';
+          $('modalClose').onclick = () => {
+            $('modalClose').textContent = '关闭';
+            $('modalClose').onclick = closeModal;
+            closeModal();
+            startClimax();
+          };
+        };
         return;
       }
-      $('hintBtn').textContent = '返回牌阵';
+      $('hintBtn').textContent = '查看结算';
       $('hintBtn').onclick = () => {
-        startBgm('story');
-        $('hintBtn').textContent = '提示';
-        $('hintBtn').onclick = showHint;
-        const currentNode = maps[state.mapLayer].nodes[state.mapPos];
-        if (currentNode) state.mapResolved[mapVisitKey(state.mapLayer, currentNode.id)] = true;
-        switchScreen('mapScreen');
-        renderMap();
+        showModal('战斗收益', `这场斗法中，你打出的伤害会沉淀为命尘。\n\n${shardText}`);
+        $('modalClose').textContent = '返回牌阵';
+        $('modalClose').onclick = () => {
+          $('modalClose').textContent = '关闭';
+          $('modalClose').onclick = closeModal;
+          closeModal();
+          startBgm('story');
+          $('hintBtn').textContent = '提示';
+          $('hintBtn').onclick = showHint;
+          const currentNode = maps[state.mapLayer].nodes[state.mapPos];
+          if (currentNode) state.mapResolved[mapVisitKey(state.mapLayer, currentNode.id)] = true;
+          switchScreen('mapScreen');
+          renderMap();
+        };
       };
     }
 
@@ -4052,7 +4615,6 @@
           $('hintBtn').textContent = '查看结局';
           $('hintBtn').onclick = () => {
             state.player.hp = 100;
-            state.player.luck = Math.max(state.player.luck, 140);
             updateResources();
             startBgm('story');
             switchScreen('mapScreen');
@@ -4082,6 +4644,8 @@
 
     function init() {
       const debugSkip = new URLSearchParams(location.search).get('skip');
+      loadScreenAssets('titleScreen');
+      startStagedPreload();
       $('startBtn').onclick = () => {
         initAudio();
         startBgm('story');
@@ -4094,7 +4658,7 @@
       $('storyNextBtn').onclick = nextStory;
       $('confirmNameBtn').onclick = confirmName;
       $('moveBtn').onclick = moveNext;
-      $('soundToggleBtn').onclick = toggleSound;
+      document.querySelectorAll('.sound-toggle').forEach(btn => btn.onclick = toggleSound);
       $('skipStoryBtn').onclick = () => {
         showToast('已跳过剧情');
         startMap();
