@@ -3292,8 +3292,8 @@
             hint: '选中 ♠6、♥6、♦6，组成三才归一(三条)。',
             forceText: '请先选中三个 6 组成三才归一(三条)',
             intent: { name: '黑雾压境', pressure: 130, damage: 26 },
-            damage: 170,
-            calc: { base: 30, flat: 10, mult: 4 },
+            damage: 168,
+            calc: { base: 34, flat: 8, mult: 4 },
             weather: { name: '黑雾压境', effect: '黑雾扰乱双方命数，拼刀败者造成的伤害更低。' },
             pattern: '三条',
             relics: ['青龙玉佩 +10', '白虎坠 x2', '朱雀翎 +24'],
@@ -3310,6 +3310,7 @@
             forceText: '请先用技能把任意一张 7 改成 8，再选中四个 8',
             intent: { name: '裂魂重击', pressure: 220, damage: 36 },
             damage: 560,
+            calc: { base: 32, flat: 48, mult: 7 },
             pattern: '四条',
             relics: ['青龙玉佩 +10', '白虎坠 x2', '朱雀翎 +32', '玄武珠 x2'],
             after: '四象遗物依次亮起，金鹏虚影掠过战场。'
@@ -3486,6 +3487,7 @@
     }
 
     function showModal(title, text) {
+      state.modalOnClose = null;
       $('modalTitle').textContent = title;
       $('modalText').textContent = text;
       bindDragScroll($('modalText'));
@@ -3493,6 +3495,7 @@
     }
 
     function showModalHtml(title, html) {
+      state.modalOnClose = null;
       $('modalTitle').textContent = title;
       $('modalText').innerHTML = html;
       bindDragScroll($('modalText'));
@@ -3502,11 +3505,14 @@
     function closeModal() {
       const wasRulesTutorial = $('modalTitle').textContent === '斗法规则'
         && state.battle && state.battle.tutorialStep === 'awaitRules' && state.battle.rulesSeen;
+      const onClose = state.modalOnClose;
+      state.modalOnClose = null;
       $('modal').classList.remove('active');
       $('modalText').innerHTML = '';
       $('modalClose').textContent = '关闭';
       $('modalClose').onclick = closeModal;
-      if (wasRulesTutorial) setTimeout(onMinionRulesClosed, 40);
+      if (onClose) onClose();
+      else if (wasRulesTutorial) setTimeout(onMinionRulesClosed, 40);
     }
 
     function addLog(title, text) {
@@ -4266,7 +4272,8 @@
         deckSort: 'suit',
         rulesSeen: false,
         shardsEarned: 0,
-        complete: false
+        complete: false,
+        climaxStarted: false
       };
       $('battleBg').className = 'painted-bg ' + script.bg;
       $('enemyName').textContent = script.enemy;
@@ -4944,7 +4951,10 @@
       const mult = Number((calc.mult * weatherMult).toFixed(2));
       const playerScore = previewPlayerScore(turn, battle);
       const ratio = Math.min(1, selected.length / Math.max(1, getTurnRequired(turn, battle).length || selected.length));
-      const damageScore = complete ? (calc.base + calc.flat) : Math.round((calc.base + calc.flat) * ratio);
+      let damageScore = complete ? (calc.base + calc.flat) : Math.round((calc.base + calc.flat) * ratio);
+      if (complete && damageScore === 0 && playerScore > 0) {
+        damageScore = mult > 1 ? Math.round(playerScore / mult) : playerScore;
+      }
       const pattern = complete ? (turn.pattern.includes('(') ? turn.pattern.split('(')[1].replace(')', '') : turn.pattern) : detectPatternName(selected);
       const ok = !turn.intent || playerScore >= turn.intent.pressure;
       const multText = Number.isInteger(mult) ? `×${mult}` : `×${mult}`;
@@ -5212,11 +5222,14 @@
         setHintGlow(true);
         $('hintBtn').onclick = () => {
           setHintGlow(false);
+          $('playBtn').disabled = false;
+          if (script.hp <= 0) {
+            finishBattle();
+            return;
+          }
           $('hintBtn').textContent = '提示';
           $('hintBtn').onclick = showHint;
-          $('playBtn').disabled = false;
-          if (script.hp <= 0) finishBattle();
-          else nextBattleTurn();
+          nextBattleTurn();
         };
       };
       if (turn.afterTalk) {
@@ -5253,6 +5266,15 @@
       setTimeout(() => el.remove(), tier === 'tier-extreme' ? 1400 : 1200);
     }
 
+    function proceedBossClimax() {
+      const b = state.battle;
+      if (!b || b.climaxStarted) return;
+      b.climaxStarted = true;
+      $('hintBtn').disabled = false;
+      setHintGlow(false);
+      startClimax();
+    }
+
     function finishBattle() {
       const b = state.battle;
       if (b.complete) return;
@@ -5267,17 +5289,13 @@
       $('skillBtn').disabled = true;
       if (b.script.id === 'boss') {
         $('hintBtn').textContent = '查看结算';
+        $('hintBtn').disabled = false;
         setHintGlow(true);
         $('hintBtn').onclick = () => {
           setHintGlow(false);
           showModal('Boss 战胜利', `黑雾执事已经被击败。\n\n${shardText}\n\n黑袍首领正在逼近。`);
+          state.modalOnClose = proceedBossClimax;
           $('modalClose').textContent = '继续剧情';
-          $('modalClose').onclick = () => {
-            $('modalClose').textContent = '关闭';
-            $('modalClose').onclick = closeModal;
-            closeModal();
-            startClimax();
-          };
         };
         return;
       }
@@ -5304,6 +5322,7 @@
 
     function startClimax() {
       const b = state.battle;
+      if (!b) return;
       b.script.enemy = '黑袍首领';
       b.script.enemyLabel = '首领';
       b.script.enemyClass = 'p-villain';
@@ -5327,6 +5346,7 @@
       setTimeout(() => $('app').style.animation = '', 800);
       $('playBtn').disabled = true;
       $('playBtn').classList.remove('guided');
+      $('hintBtn').disabled = false;
       $('hintBtn').textContent = '抽取传承';
       setHintGlow(true);
       $('hintBtn').classList.add('guided');
