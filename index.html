@@ -511,6 +511,11 @@
 
     .topbar .review-open {
       margin-left: auto;
+      white-space: nowrap;
+    }
+
+    #battleScreen .battle-luck-resource {
+      display: none;
     }
 
     .topbar-sound {
@@ -1310,9 +1315,9 @@
       background: rgba(255, 247, 222, .78);
       border: 1px solid rgba(105, 65, 24, .26);
       color: #2f2112;
-      min-height: 218px;
-      display: grid;
-      grid-template-rows: 56px auto 1fr auto auto;
+      min-height: 252px;
+      display: flex;
+      flex-direction: column;
       gap: 6px;
       overflow: hidden;
     }
@@ -1322,6 +1327,7 @@
       color: #762019;
       font-size: 14px;
       line-height: 1.25;
+      flex-shrink: 0;
     }
 
     .shop-card-desc {
@@ -1329,6 +1335,16 @@
       line-height: 1.45;
       font-size: 12px;
       text-shadow: 0 1px 0 rgba(255,255,255,.5);
+      flex: 1 1 auto;
+      min-height: 58px;
+    }
+
+    .shop-card-foot {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-shrink: 0;
     }
 
     .shop-item-icon {
@@ -2362,6 +2378,27 @@
       color: #762019;
     }
 
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+
+    .modal-actions .ghost-btn {
+      flex: 0 0 auto;
+      min-height: 40px;
+      padding: 0 12px;
+      font-size: 13px;
+    }
+
+    .modal-actions .primary-btn {
+      flex: 1;
+    }
+
+    #modalScrollTop {
+      display: none;
+    }
+
     .review-entry {
       padding: 9px 0;
       border-bottom: 1px solid rgba(90, 58, 22, .18);
@@ -2569,7 +2606,7 @@
       <div id="battleBg" class="painted-bg bg-battle"></div>
       <div class="topbar">
         <span class="resource">气血 <b id="battleHp">100</b></span>
-        <span class="resource">气运 <b id="battleLuck">30</b></span>
+        <span class="resource battle-luck-resource">气运 <b id="battleLuck">30</b></span>
         <span class="resource">命尘 <b id="battlePool">0</b></span>
         <span class="resource">人和技 <b id="skillState">青崖剑诀</b></span>
         <button class="topbar-btn review-open">回顾</button>
@@ -2684,7 +2721,10 @@
       <div class="modal-card">
         <h3 id="modalTitle">详情</h3>
         <div id="modalText" class="modal-body"></div>
-        <button id="modalClose" class="primary-btn">关闭</button>
+        <div class="modal-actions">
+          <button id="modalScrollTop" type="button" class="ghost-btn">回到顶部</button>
+          <button id="modalClose" type="button" class="primary-btn">关闭</button>
+        </div>
       </div>
     </div>
     <div id="toast" class="toast"></div>
@@ -3053,9 +3093,9 @@
           { id: 'start', x: 64, y: 86, type: 'start', label: '起点', icon: '符' },
           { id: 'roadblock', x: 64, y: 68, type: 'event', label: '拦路', icon: '险' },
           { id: 'bridge', x: 36, y: 68, type: 'event', label: '小道', icon: '缘' },
-          { id: 'ring', x: 36, y: 50, type: 'treasure', label: '旧物', icon: '藏' },
-          { id: 'shop1', x: 64, y: 50, type: 'shop', label: '茶棚', icon: '市' },
-          { id: 'minion', x: 64, y: 30, type: 'battle', label: '追兵', icon: '斗' },
+          { id: 'ring', x: 36, y: 42, type: 'treasure', label: '旧物', icon: '藏' },
+          { id: 'shop1', x: 64, y: 42, type: 'shop', label: '茶棚', icon: '市' },
+          { id: 'minion', x: 64, y: 22, type: 'battle', label: '追兵', icon: '斗' },
           { id: 'pond', x: 40, y: 12, type: 'stairs', label: '碧潭', icon: '阶' }
         ],
         edges: [[0, 1], [1, 4, 'blocked'], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6]]
@@ -3174,7 +3214,7 @@
         ],
         items: [
           { id: 'qinglong', name: '青龙玉佩', price: 15, icon: '玉', required: true, desc: '你打出包含相同点数的牌型时，每有一组相同点数，额外造成 +10 伤害。' },
-          { id: 'yunlu', name: '回元云露', price: 90, icon: '露', type: 'consumable', yuan: 3, desc: '购买后立刻恢复 3 点真元。现在你买不起，但能看出真元也可以通过商店补给。' },
+          { id: 'yunlu', name: '回元云露', price: 90, icon: '露', type: 'consumable', yuan: 3, desc: '购买后立刻恢复 3 点真元。现在你买不起，但能看出真元可在商店补给。' },
           { id: 'taixu', name: '太虚归元镜', price: 3000, icon: '镜', desc: '顶级法宝。可照见一条世界命运线。现在你买不起。' },
           { id: 'feijian', name: '九霄飞剑匣', price: 2800, icon: '剑', desc: '顶级法宝。可让剑修传承额外触发一次。现在你买不起。' }
         ],
@@ -3486,8 +3526,23 @@
       state.mapDealt = false;
     }
 
+    function setModalScrollTopVisible(show) {
+      const btn = $('modalScrollTop');
+      if (btn) btn.style.display = show ? '' : 'none';
+    }
+
+    function scrollModalBodyToBottom() {
+      const body = $('modalText');
+      if (!body) return;
+      const scroll = () => { body.scrollTop = body.scrollHeight; };
+      requestAnimationFrame(scroll);
+      setTimeout(scroll, 60);
+      setTimeout(scroll, 180);
+    }
+
     function showModal(title, text) {
       state.modalOnClose = null;
+      setModalScrollTopVisible(false);
       $('modalTitle').textContent = title;
       $('modalText').textContent = text;
       bindDragScroll($('modalText'));
@@ -3496,6 +3551,7 @@
 
     function showModalHtml(title, html) {
       state.modalOnClose = null;
+      setModalScrollTopVisible(false);
       $('modalTitle').textContent = title;
       $('modalText').innerHTML = html;
       bindDragScroll($('modalText'));
@@ -3507,6 +3563,7 @@
         && state.battle && state.battle.tutorialStep === 'awaitRules' && state.battle.rulesSeen;
       const onClose = state.modalOnClose;
       state.modalOnClose = null;
+      setModalScrollTopVisible(false);
       $('modal').classList.remove('active');
       $('modalText').innerHTML = '';
       $('modalClose').textContent = '关闭';
@@ -3523,6 +3580,8 @@
     function showReview() {
       const html = `<div class="review-list">${state.logs.map(item => `<div class="review-entry"><strong>${item.title}</strong>\n${item.text}</div>`).join('') || '暂无记录。'}</div>`;
       showModalHtml('文本回顾', html);
+      setModalScrollTopVisible(true);
+      scrollModalBodyToBottom();
     }
 
     function showRules() {
@@ -4186,7 +4245,7 @@
       shop.items.forEach(item => {
         const box = document.createElement('div');
         box.className = 'shop-card';
-        box.innerHTML = `<div class="shop-item-icon">${item.icon || '宝'}</div><strong>${item.name}</strong><div class="shop-card-desc">${item.desc}</div><div class="shop-price">${item.price} 气运</div>`;
+        box.innerHTML = `<div class="shop-item-icon">${item.icon || '宝'}</div><strong>${item.name}</strong><div class="shop-card-desc">${item.desc}</div><div class="shop-card-foot"><div class="shop-price">${item.price} 气运</div></div>`;
         const row = document.createElement('div');
         row.className = 'dialog-actions';
         const buy = document.createElement('button');
@@ -4228,7 +4287,7 @@
         detail.onclick = () => showModal(item.name, item.desc);
         row.appendChild(buy);
         row.appendChild(detail);
-        box.appendChild(row);
+        box.querySelector('.shop-card-foot').appendChild(row);
         $('shopShelf').appendChild(box);
       });
       bindDragScroll($('shopShelf'));
@@ -5501,6 +5560,10 @@
       updateSoundButton();
       $('objectiveBtn').onclick = () => showModal('当前目标', '沿命运牌阵逃离青崖峰后山。\n点击发光的相邻命运牌选择路线；每移动一次消耗 1 点真元，剑符会落到目标牌并翻开它。');
       $('modalClose').onclick = closeModal;
+      $('modalScrollTop').onclick = () => {
+        const body = $('modalText');
+        if (body) body.scrollTop = 0;
+      };
       $('modal').onclick = (e) => { if (e.target.id === 'modal') closeModal(); };
       document.querySelectorAll('.dpad-btn').forEach(btn => {
         btn.onclick = () => moveByDirection(btn.dataset.dir);
