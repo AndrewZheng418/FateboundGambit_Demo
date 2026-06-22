@@ -2446,7 +2446,7 @@
       position: absolute;
       left: 16px;
       right: 16px;
-      top: calc(49% + env(safe-area-inset-top, 0px));
+      top: calc(38% + env(safe-area-inset-top, 0px));
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
@@ -3547,28 +3547,9 @@
       $('modalClose').onclick = closeModal;
     }
 
-    function wireClimaxHintButton() {
-      $('playBtn').disabled = true;
-      $('playBtn').classList.remove('guided');
-      $('hintBtn').disabled = false;
-      $('hintBtn').textContent = '抽取传承';
-      $('hintBtn').classList.remove('guided');
-      setHintGlow(true);
-      $('hintBtn').classList.add('guided');
-      $('hintBtn').onclick = () => {
-        $('hintBtn').classList.remove('guided');
-        setHintGlow(false);
-        renderMysticTurn();
-      };
-    }
-
     function advanceBossToClimax() {
       dismissModal();
-      try {
-        startClimax();
-      } finally {
-        if (state.battle) wireClimaxHintButton();
-      }
+      startClimax();
     }
 
     function openBossSettlementModal(shardText) {
@@ -5035,15 +5016,27 @@
     function updateComboPreview() {
       if (!$('comboPreview')) return;
       const battle = state.battle;
-      if (!battle || !battle.script || battle.turnIndex < 0 || battle.turnIndex === 99) {
-        if (battle && battle.turnIndex === 99) {
-          const count = battle.selected ? battle.selected.length : 0;
-          $('comboPreview').innerHTML = count >= 5
-            ? '<div class="combo-meter"><div class="combo-pill"><span>当前牌型</span><b>五条</b></div><div class="combo-pill"><span>伤害分</span><b>9999</b></div><div class="combo-pill"><span>倍率</span><b>×1</b></div><div class="combo-pill"><span>最终伤害分</span><b class="score-ok">9999</b></div></div>'
-            : '<strong>万象传承</strong>选择黑桃 A 与万象牌，铺开传说牌型。';
-        } else {
-          $('comboPreview').innerHTML = '<strong>等待出牌</strong>选择手牌后显示组合公式。';
+      if (!battle || !battle.script) return;
+      if (battle.turnIndex === -2) return;
+      if (battle.turnIndex === 99) {
+        if (battle.climaxStep === 3) return;
+        const sel = (battle.selected || []).slice().sort((a, z) => a - z);
+        const fourReady = sel.length === 4 && sel.every((v, i) => v === i);
+        if (fourReady) {
+          $('comboPreview').innerHTML = `
+            <div class="combo-meter">
+              <div class="combo-pill"><span>当前牌型</span><b>四条 A</b></div>
+              <div class="combo-pill"><span>伤害分</span><b>194</b></div>
+              <div class="combo-pill"><span>倍率</span><b>×1</b></div>
+              <div class="combo-pill"><span>最终伤害分</span><b class="score-ok">194</b></div>
+            </div>`;
+          return;
         }
+        $('comboPreview').innerHTML = '<strong>万象传承</strong>选择 ♠A 与万象·天/地/人，准备铺开万象归一。';
+        return;
+      }
+      if (battle.turnIndex < 0) {
+        $('comboPreview').innerHTML = '<strong>等待出牌</strong>选择手牌后显示组合公式。';
         return;
       }
       const turn = battle.script.turns[battle.turnIndex];
@@ -5420,12 +5413,27 @@
       };
     }
 
+    function setClimaxIntentDisplay(taken = '0') {
+      $('intentScore').textContent = '压迫 ???';
+      $('intentDamage').textContent = '伤害 ???';
+      if ($('intentTaken')) $('intentTaken').textContent = `受到我方伤害 ${taken}`;
+      const intentEl = $('enemyIntent');
+      if (intentEl) {
+        intentEl.dataset.title = '剧情杀 · 天命同归';
+        intentEl.dataset.pressure = '???';
+        intentEl.dataset.damage = '???';
+        intentEl.classList.remove('intent-win');
+      }
+    }
+
     function startClimax() {
       const b = state.battle;
       if (!b) {
         showToast('战斗状态丢失，请刷新后重试');
         return;
       }
+      b.turnIndex = -2;
+      b.selected = [];
       b.script.enemy = '黑袍首领';
       b.script.enemyLabel = '首领';
       b.script.enemyClass = 'p-villain';
@@ -5434,22 +5442,30 @@
       $('enemyName').textContent = '黑袍首领';
       setEnemyStoryPortrait('首领');
       updateEnemy();
-      $('intentScore').textContent = '压迫 ???';
-      $('intentDamage').textContent = '伤害 999';
-      if ($('intentTaken')) $('intentTaken').textContent = '受到我方伤害 0';
-      const intentEl = $('enemyIntent');
-      if (intentEl) {
-        intentEl.dataset.title = '剧情杀 · 天命同归';
-        intentEl.dataset.pressure = '???';
-        intentEl.dataset.damage = '999';
-      }
+      setClimaxIntentDisplay('0');
       playSfx('thunder');
-      setBattleLog('剧情杀 · 天命同归', '黑袍首领打出：♠10 ♠J ♠Q ♠K ♠A\n真实伤害 999\n\n灵脉守护发动，青棠玉佩碎裂，你的气血锁定为 1。');
+      setBattleLog('剧情杀 · 天命同归', '黑袍首领从天而降，气血 8000/8000。\n\n黑袍首领打出：♠10 ♠J ♠Q ♠K ♠A\n真实伤害 999\n\n灵脉守护发动，青棠玉佩碎裂，你的气血锁定为 1。');
       state.player.hp = 1;
       updateResources();
       showPlayerHit(999);
       $('app').style.animation = 'shake .7s ease';
       setTimeout(() => $('app').style.animation = '', 800);
+      renderHand([]);
+      renderRelics([]);
+      $('comboPreview').innerHTML = '<strong>剧情杀 · 天命同归</strong>黑袍首领降临，敌方意图与压迫均为未知命数。';
+      $('playBtn').disabled = true;
+      $('playBtn').classList.remove('guided');
+      $('skillBtn').disabled = true;
+      $('hintBtn').disabled = false;
+      $('hintBtn').textContent = '抽取传承';
+      $('hintBtn').classList.remove('guided');
+      setHintGlow(true);
+      $('hintBtn').classList.add('guided');
+      $('hintBtn').onclick = () => {
+        $('hintBtn').classList.remove('guided');
+        setHintGlow(false);
+        renderMysticTurn();
+      };
     }
 
     function renderMysticTurn() {
@@ -5457,22 +5473,25 @@
       b.turnIndex = 99;
       b.selected = [];
       b.skillMode = false;
+      b.climaxStep = 1;
       b.hand = [
         c('S', 1, '', ''),
         c('S', 1, '万象·天', 'mystic'),
         c('S', 1, '万象·地', 'mystic'),
         c('S', 1, '万象·人', 'mystic')
       ];
-      b.climaxStep = 1;
+      setClimaxIntentDisplay('0');
       setBattleLog('万象传承', '先打出 ♠A，再依次打出三张万象牌：天、地、人。\n\n它们会复制自己左侧那张已经打出的牌。');
       renderRelics(['万象']);
       renderHand(b.hand);
-      $('comboPreview').innerHTML = '<strong>万象传承</strong>选择 ♠A 与万象·天/地/人，准备铺开万象归一。';
+      updateComboPreview();
       $('playBtn').disabled = false;
       $('playBtn').classList.add('guided');
       $('skillBtn').disabled = true;
       $('skillState').textContent = '进化中';
       $('hintBtn').textContent = '提示';
+      $('hintBtn').classList.remove('guided');
+      setHintGlow(false);
       $('hintBtn').onclick = showHint;
     }
 
@@ -5486,67 +5505,61 @@
         return true;
       }
       const cards = selected.map(i => b.hand[i]);
-      const mysticTurn = { pattern: '四条 A', damage: 194, relics: ['万象复制', '青龙玉佩 +10', '白虎坠 x2'] };
+      const mysticTurn = { pattern: '四条 A', damage: 194, calc: { base: 80, flat: 114, mult: 1 }, relics: ['万象复制', '青龙玉佩 +10', '白虎坠 x2'] };
       $('playBtn').disabled = true;
       $('playBtn').classList.remove('guided');
       playScoreSequence(cards, mysticTurn, { enemyTaken: 194, playerTaken: 0, playerScore: 194, pressure: 0 }, () => {
-        b.hand = [];
         b.selected = [];
         b.script.hp = Math.max(0, b.script.hp - 194);
         updateEnemy();
-        renderHand([]);
+        setClimaxIntentDisplay('194');
         setBattleLog('四象归位(四条 A) · 伤害分 194', '万象·天、地、人依次复制左侧，四张黑桃 A 成型。\n\n黑袍首领受到了伤害，但还没有倒下。');
         renderRelics(['青龙', '白虎']);
         b.climaxStep = 2;
         showBattleTalk('青棠', '还不够……师兄，这一次，换我护着你。', () => {
-        b.hand = [
-          c('S', 1, '', ''),
-          c('S', 1, '', ''),
-          c('S', 1, '', ''),
-          c('S', 1, '', ''),
-          c('S', 1, '青棠余光', 'mystic')
-        ];
-        b.selected = [];
-        renderHand(b.hand);
-        setBattleLog('抽牌 · 第五张 A', '青棠玉佩碎裂，最后一缕金光落入牌局。\n\n你抽到了第 5 张 ♠A。青崖剑诀临时进化为“青崖·舍身”。\n\n请选择右下角「打出五条 A」。');
-        $('comboPreview').innerHTML = '<div class="combo-meter"><div class="combo-pill"><span>当前牌型</span><b>五条</b></div><div class="combo-pill"><span>伤害分</span><b>9999</b></div><div class="combo-pill"><span>倍率</span><b>×1</b></div><div class="combo-pill"><span>最终伤害分</span><b class="score-ok">9999</b></div></div>';
-        b.climaxStep = 3;
-        $('playBtn').disabled = true;
-        $('hintBtn').textContent = '打出五条 A';
-        setHintGlow(true);
-        $('hintBtn').classList.add('guided');
-        $('hintBtn').onclick = () => {
-          $('hintBtn').classList.remove('guided');
-          setHintGlow(false);
-          $('hintBtn').disabled = true;
-          const fiveCards = b.hand.slice();
-          const fiveTurn = { pattern: '五条 A', damage: 9999, relics: ['万象归一', '青龙玉佩 +10', '白虎坠 x2', '朱雀翎 +40', '玄武珠 x2'] };
-          playScoreSequence(fiveCards, fiveTurn, { enemyTaken: 9999, playerTaken: 0, playerScore: 9999, pressure: 0 }, () => {
-            b.hand = [];
-            b.selected = [];
-            b.script.hp = 0;
-            updateEnemy();
-            renderHand([]);
-            setBattleLog('万象归一 · 五条A同花', '五张黑桃 A 同时落下，万象传承归于一线。\n最终伤害分：9999\n\n黑袍首领气血归零，被强行击退。');
-            renderRelics(['青龙', '白虎', '朱雀', '玄武']);
-            $('app').style.animation = 'shake .65s ease';
-            setTimeout(() => $('app').style.animation = '', 700);
-            $('hintBtn').disabled = false;
-            $('hintBtn').textContent = '查看结局';
-            $('hintBtn').onclick = () => {
-              state.player.hp = 100;
-              updateResources();
-              startBgm('story');
-              switchScreen('mapScreen');
-              state.mapLayer = 1;
-              const exitIndex = maps[1].nodes.findIndex(node => node.id === 'exit');
-              state.mapPos = exitIndex;
-              state.mapVisited[mapVisitKey(1, 'exit')] = true;
-              renderMap();
-              triggerNode(maps[1].nodes[exitIndex]);
-            };
-          });
-        };
+          b.hand.push(c('S', 1, '青棠玉佩', 'mystic'));
+          b.selected = [0, 1, 2, 3, 4];
+          b.climaxStep = 3;
+          renderHand(b.hand);
+          setBattleLog('抽牌 · 第五张 A', '青棠玉佩碎裂，最后一缕金光落入牌局。\n\n你抽到了第 5 张 ♠A。青崖剑诀临时进化为“青崖·舍身”。\n\n请选择右下角「打出五条 A」。');
+          $('comboPreview').innerHTML = '<div class="combo-meter"><div class="combo-pill"><span>当前牌型</span><b>五条</b></div><div class="combo-pill"><span>伤害分</span><b>9999</b></div><div class="combo-pill"><span>倍率</span><b>×1</b></div><div class="combo-pill"><span>最终伤害分</span><b class="score-ok">9999</b></div></div>';
+          $('playBtn').disabled = true;
+          $('hintBtn').textContent = '打出五条 A';
+          setHintGlow(true);
+          $('hintBtn').classList.add('guided');
+          $('hintBtn').onclick = () => {
+            $('hintBtn').classList.remove('guided');
+            setHintGlow(false);
+            $('hintBtn').disabled = true;
+            const fiveCards = b.hand.slice();
+            const fiveTurn = { pattern: '五条 A', damage: 9999, calc: { base: 9999, flat: 0, mult: 1 }, relics: ['万象归一', '青龙玉佩 +10', '白虎坠 x2', '朱雀翎 +40', '玄武珠 x2'] };
+            playScoreSequence(fiveCards, fiveTurn, { enemyTaken: 9999, playerTaken: 0, playerScore: 9999, pressure: 0 }, () => {
+              b.hand = [];
+              b.selected = [];
+              b.script.hp = 0;
+              updateEnemy();
+              setClimaxIntentDisplay('9999');
+              renderHand([]);
+              setBattleLog('万象归一 · 五条A同花', '五张黑桃 A 同时落下，万象传承归于一线。\n最终伤害分：9999\n\n黑袍首领气血归零，被强行击退。');
+              renderRelics(['青龙', '白虎', '朱雀', '玄武']);
+              $('app').style.animation = 'shake .65s ease';
+              setTimeout(() => $('app').style.animation = '', 700);
+              $('hintBtn').disabled = false;
+              $('hintBtn').textContent = '查看结局';
+              $('hintBtn').onclick = () => {
+                state.player.hp = 100;
+                updateResources();
+                startBgm('story');
+                switchScreen('mapScreen');
+                state.mapLayer = 1;
+                const exitIndex = maps[1].nodes.findIndex(node => node.id === 'exit');
+                state.mapPos = exitIndex;
+                state.mapVisited[mapVisitKey(1, 'exit')] = true;
+                renderMap();
+                triggerNode(maps[1].nodes[exitIndex]);
+              };
+            });
+          };
         });
       });
       return true;
