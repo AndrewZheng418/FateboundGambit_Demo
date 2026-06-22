@@ -3540,8 +3540,8 @@
       setTimeout(scroll, 180);
     }
 
-    function showModal(title, text) {
-      state.modalOnClose = null;
+    function showModal(title, text, onClose) {
+      state.modalOnClose = typeof onClose === 'function' ? onClose : null;
       setModalScrollTopVisible(false);
       $('modalTitle').textContent = title;
       $('modalText').textContent = text;
@@ -3549,8 +3549,8 @@
       $('modal').classList.add('active');
     }
 
-    function showModalHtml(title, html) {
-      state.modalOnClose = null;
+    function showModalHtml(title, html, onClose) {
+      state.modalOnClose = typeof onClose === 'function' ? onClose : null;
       setModalScrollTopVisible(false);
       $('modalTitle').textContent = title;
       $('modalText').innerHTML = html;
@@ -5325,18 +5325,38 @@
       setTimeout(() => el.remove(), tier === 'tier-extreme' ? 1400 : 1200);
     }
 
-    function proceedBossClimax() {
+    function wireBossVictoryModal(shardText) {
+      const body = `黑雾执事已经被击败。\n\n${shardText}\n\n黑袍首领正在逼近。`;
+      const commitBossClimax = () => {
+        $('modal').classList.remove('active');
+        $('modalText').innerHTML = '';
+        state.modalOnClose = null;
+        setModalScrollTopVisible(false);
+        $('modalClose').textContent = '关闭';
+        $('modalClose').onclick = closeModal;
+        enterBossClimaxPhase();
+      };
+      setModalScrollTopVisible(false);
+      $('modalTitle').textContent = 'Boss 战胜利';
+      $('modalText').textContent = body;
+      bindDragScroll($('modalText'));
+      $('modal').classList.add('active');
+      $('modalClose').textContent = '继续剧情';
+      $('modalClose').onclick = commitBossClimax;
+      state.modalOnClose = commitBossClimax;
+    }
+
+    function enterBossClimaxPhase() {
       const b = state.battle;
-      if (!b || b.climaxStarted) return;
-      b.climaxStarted = true;
-      $('hintBtn').disabled = false;
+      if (!b || b.turnIndex === 99) return;
       setHintGlow(false);
+      $('hintBtn').disabled = false;
       startClimax();
     }
 
     function finishBattle() {
       const b = state.battle;
-      if (b.complete) return;
+      if (!b || b.complete) return;
       b.complete = true;
       state.player.luck += b.script.rewardLuck || 0;
       updateResources();
@@ -5346,15 +5366,13 @@
       renderHand([]);
       $('playBtn').disabled = true;
       $('skillBtn').disabled = true;
+      $('hintBtn').disabled = false;
       if (b.script.id === 'boss') {
         $('hintBtn').textContent = '查看结算';
-        $('hintBtn').disabled = false;
         setHintGlow(true);
         $('hintBtn').onclick = () => {
           setHintGlow(false);
-          showModal('Boss 战胜利', `黑雾执事已经被击败。\n\n${shardText}\n\n黑袍首领正在逼近。`);
-          state.modalOnClose = proceedBossClimax;
-          $('modalClose').textContent = '继续剧情';
+          wireBossVictoryModal(shardText);
         };
         return;
       }
@@ -5379,9 +5397,28 @@
       };
     }
 
+    function wireClimaxHint() {
+      $('playBtn').disabled = true;
+      $('playBtn').classList.remove('guided');
+      $('hintBtn').disabled = false;
+      $('hintBtn').textContent = '抽取传承';
+      $('hintBtn').classList.remove('guided');
+      setHintGlow(true);
+      $('hintBtn').classList.add('guided');
+      $('hintBtn').onclick = () => {
+        $('hintBtn').classList.remove('guided');
+        setHintGlow(false);
+        renderMysticTurn();
+      };
+    }
+
     function startClimax() {
       const b = state.battle;
-      if (!b) return;
+      if (!b || b.turnIndex === 99) return;
+      if (b.climaxStarted) {
+        wireClimaxHint();
+        return;
+      }
       b.script.enemy = '黑袍首领';
       b.script.enemyLabel = '首领';
       b.script.enemyClass = 'p-villain';
@@ -5393,9 +5430,12 @@
       $('intentScore').textContent = '压迫 ???';
       $('intentDamage').textContent = '伤害 999';
       if ($('intentTaken')) $('intentTaken').textContent = '受到我方伤害 0';
-      $('enemyIntent').dataset.title = '剧情杀 · 天命同归';
-      $('enemyIntent').dataset.pressure = '???';
-      $('enemyIntent').dataset.damage = 999;
+      const intentEl = $('enemyIntent');
+      if (intentEl) {
+        intentEl.dataset.title = '剧情杀 · 天命同归';
+        intentEl.dataset.pressure = '???';
+        intentEl.dataset.damage = '999';
+      }
       playSfx('thunder');
       setBattleLog('剧情杀 · 天命同归', '黑袍首领打出：♠10 ♠J ♠Q ♠K ♠A\n真实伤害 999\n\n灵脉守护发动，青棠玉佩碎裂，你的气血锁定为 1。');
       state.player.hp = 1;
@@ -5403,17 +5443,8 @@
       showPlayerHit(999);
       $('app').style.animation = 'shake .7s ease';
       setTimeout(() => $('app').style.animation = '', 800);
-      $('playBtn').disabled = true;
-      $('playBtn').classList.remove('guided');
-      $('hintBtn').disabled = false;
-      $('hintBtn').textContent = '抽取传承';
-      setHintGlow(true);
-      $('hintBtn').classList.add('guided');
-      $('hintBtn').onclick = () => {
-        $('hintBtn').classList.remove('guided');
-        setHintGlow(false);
-        renderMysticTurn();
-      };
+      b.climaxStarted = true;
+      wireClimaxHint();
     }
 
     function renderMysticTurn() {
