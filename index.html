@@ -5078,8 +5078,17 @@
       if (!battle || !battle.script) return;
       if (battle.turnIndex === -2) return;
       if (battle.turnIndex === 99) {
-        if (battle.climaxStep === 3) return;
+        if (battle.script.hp <= 0) {
+          $('comboPreview').innerHTML = '<strong>万象归一 · 五条A同花</strong>最终伤害：<span class="score-ok">9999</span>';
+          return;
+        }
+        const handLen = (battle.hand || []).length;
         const sel = (battle.selected || []).slice().sort((a, z) => a - z);
+        const fiveReady = handLen === 5 && sel.length === 5 && sel.every((v, i) => v === i);
+        if (fiveReady) {
+          $('comboPreview').innerHTML = '<strong>万象归一 · 五条A同花</strong>预计分数 9999 × 1 = <span class="score-ok">9999</span>';
+          return;
+        }
         const fourReady = sel.length === 4 && sel.every((v, i) => v === i);
         if (fourReady) {
           $('comboPreview').innerHTML = `
@@ -5526,7 +5535,6 @@
           b.selected = [0, 1, 2, 3, 4];
           renderHand(b.hand);
           setBattleLog('抽牌 · 第五张 A', '青棠玉佩碎裂，最后一缕金光落入牌局。\n\n你抽到了第 5 张 ♠A。青崖剑诀临时进化为“青崖·舍身”。\n\n请选择右下角「打出五条 A」。');
-          $('comboPreview').innerHTML = '<strong>万象归一 · 五条A同花</strong>预计分数 9999 × 1 = <span class="score-ok">9999</span>';
           $('playBtn').disabled = true;
           $('hintBtn').textContent = '打出五条 A';
           setHintGlow(true);
@@ -5544,7 +5552,7 @@
               updateEnemy();
               setClimaxIntentDisplay('9999');
               renderHand([]);
-              setBattleLog('万象归一 · 五条A同花', '五张黑桃 A 同时落下，万象传承归于一线。\n最终伤害分：9999\n\n黑袍首领气血归零，被强行击退。');
+              setBattleLog('万象归一 · 五条A同花', '五张黑桃 A 同时落下，万象传承归于一线。\n最终伤害：9999\n\n黑袍首领气血归零，被强行击退。');
               renderRelics(['青龙', '白虎', '朱雀', '玄武']);
               $('app').style.animation = 'shake .65s ease';
               setTimeout(() => $('app').style.animation = '', 700);
