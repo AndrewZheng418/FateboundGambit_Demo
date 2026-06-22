@@ -3547,28 +3547,168 @@
       $('modalClose').onclick = closeModal;
     }
 
-    function openBossSettlementModal(shardText) {
+    function wireBossHint(text, handler, glow = true) {
+      $('hintBtn').disabled = false;
+      $('hintBtn').textContent = text;
+      $('hintBtn').classList.remove('guided');
+      setHintGlow(glow);
+      $('hintBtn').onclick = handler;
+    }
+
+    function showBossSettlementModal() {
       const b = state.battle;
-      if (!b || b.climaxStage === 'intro' || b.climaxStage === 'mystic' || b.climaxStage === 'finale' || b.climaxStage === 'entering') return;
-      b.climaxStage = 'settlement';
-      const onContinue = (e) => {
+      if (!b || b.epilogueStep !== 1) return;
+      const shardText = b.epilogueShardText || '';
+      $('hintBtn').disabled = true;
+      showModal('Boss 战胜利', `黑雾执事已经被击败。\n\n${shardText}`);
+      state.modalOnClose = null;
+      $('modalClose').textContent = '继续剧情';
+      $('modalClose').onclick = (e) => {
         if (e) {
           e.preventDefault();
           e.stopPropagation();
         }
+        $('hintBtn').disabled = true;
+        $('hintBtn').onclick = null;
         state.modalOnClose = null;
         $('modal').classList.remove('active');
         $('modalText').innerHTML = '';
         setModalScrollTopVisible(false);
         $('modalClose').textContent = '关闭';
         $('modalClose').onclick = closeModal;
-        b.climaxStage = 'entering';
-        startClimax();
+        requestAnimationFrame(() => applyBossEpilogueStep(2));
       };
-      showModal('Boss 战胜利', `黑雾执事已经被击败。\n\n${shardText}`);
-      state.modalOnClose = null;
-      $('modalClose').textContent = '继续剧情';
-      $('modalClose').onclick = onContinue;
+    }
+
+    function applyBossEpilogueStep(step) {
+      const b = state.battle;
+      if (!b) return;
+      b.epilogueStep = step;
+
+      if (step === 1) {
+        b.script.enemy = '黑雾执事';
+        b.script.enemyLabel = '执事';
+        b.script.enemyClass = 'p-redboss';
+        $('enemyName').textContent = '黑雾执事';
+        setEnemyTokenPortrait(b.script);
+        updateEnemy();
+        $('playBtn').disabled = true;
+        $('skillBtn').disabled = true;
+        renderHand([]);
+        wireBossHint('查看结算', () => {
+          setHintGlow(false);
+          showBossSettlementModal();
+        });
+        return;
+      }
+
+      if (step === 2) {
+        b.turnIndex = -2;
+        b.selected = [];
+        b.script.enemy = '黑袍首领';
+        b.script.enemyLabel = '首领';
+        b.script.enemyClass = 'p-villain';
+        b.script.maxHp = 8000;
+        b.script.hp = 8000;
+        $('enemyName').textContent = '黑袍首领';
+        setEnemyStoryPortrait('首领');
+        updateEnemy();
+        setClimaxIntentDisplay('0');
+        playSfx('thunder');
+        setBattleLog('剧情杀 · 天命同归', '黑袍首领从天而降，气血 8000/8000。\n\n黑袍首领打出：♠10 ♠J ♠Q ♠K ♠A\n真实伤害 999\n\n灵脉守护发动，青棠玉佩碎裂，你的气血锁定为 1。');
+        state.player.hp = 1;
+        updateResources();
+        showPlayerHit(999);
+        $('app').style.animation = 'shake .7s ease';
+        setTimeout(() => $('app').style.animation = '', 800);
+        renderHand([]);
+        renderRelics([]);
+        $('comboPreview').innerHTML = '<strong>剧情杀 · 天命同归</strong>黑袍首领降临，敌方意图与压迫均为未知命数。';
+        $('playBtn').disabled = true;
+        $('playBtn').classList.remove('guided');
+        $('skillBtn').disabled = true;
+        $('hintBtn').classList.add('guided');
+        wireBossHint('抽取传承', () => {
+          $('hintBtn').classList.remove('guided');
+          setHintGlow(false);
+          applyBossEpilogueStep(3);
+        });
+        return;
+      }
+
+      if (step === 3) {
+        b.turnIndex = 99;
+        b.selected = [];
+        b.skillMode = false;
+        b.hand = [
+          c('S', 1, '', ''),
+          c('S', 1, '万象·天', 'mystic'),
+          c('S', 1, '万象·地', 'mystic'),
+          c('S', 1, '万象·人', 'mystic')
+        ];
+        setClimaxIntentDisplay('0');
+        setBattleLog('万象传承', '先打出 ♠A，再依次打出三张万象牌：天、地、人。\n\n它们会复制自己左侧那张已经打出的牌。');
+        renderRelics(['万象']);
+        renderHand(b.hand);
+        updateComboPreview();
+        $('playBtn').disabled = false;
+        $('playBtn').classList.add('guided');
+        $('skillBtn').disabled = true;
+        $('skillState').textContent = '进化中';
+        wireBossHint('提示', showHint, false);
+        return;
+      }
+
+      if (step === 5) {
+        b.hand.push(c('S', 1, '青棠玉佩', 'mystic'));
+        b.selected = [0, 1, 2, 3, 4];
+        renderHand(b.hand);
+        setBattleLog('抽牌 · 第五张 A', '青棠玉佩碎裂，最后一缕金光落入牌局。\n\n你抽到了第 5 张 ♠A。青崖剑诀临时进化为“青崖·舍身”。\n\n请选择右下角「打出五条 A」。');
+        $('comboPreview').innerHTML = '<div class="combo-meter"><div class="combo-pill"><span>当前牌型</span><b>五条</b></div><div class="combo-pill"><span>伤害分</span><b>9999</b></div><div class="combo-pill"><span>倍率</span><b>×1</b></div><div class="combo-pill"><span>最终伤害分</span><b class="score-ok">9999</b></div></div>';
+        $('playBtn').disabled = true;
+        $('hintBtn').classList.add('guided');
+        wireBossHint('打出五条 A', () => {
+          $('hintBtn').classList.remove('guided');
+          setHintGlow(false);
+          playBossFiveA();
+        });
+      }
+    }
+
+    function playBossFiveA() {
+      const b = state.battle;
+      if (!b || b.epilogueStep !== 5) return;
+      b.epilogueStep = 6;
+      $('hintBtn').disabled = true;
+      const fiveCards = b.hand.slice();
+      const fiveTurn = { pattern: '五条 A', damage: 9999, calc: { base: 9999, flat: 0, mult: 1 }, relics: ['万象归一', '青龙玉佩 +10', '白虎坠 x2', '朱雀翎 +40', '玄武珠 x2'] };
+      playScoreSequence(fiveCards, fiveTurn, { enemyTaken: 9999, playerTaken: 0, playerScore: 9999, pressure: 0 }, () => {
+        b.hand = [];
+        b.selected = [];
+        b.script.hp = 0;
+        updateEnemy();
+        setClimaxIntentDisplay('9999');
+        renderHand([]);
+        setBattleLog('万象归一 · 五条A同花', '五张黑桃 A 同时落下，万象传承归于一线。\n最终伤害分：9999\n\n黑袍首领气血归零，被强行击退。');
+        renderRelics(['青龙', '白虎', '朱雀', '玄武']);
+        $('app').style.animation = 'shake .65s ease';
+        setTimeout(() => $('app').style.animation = '', 700);
+        b.epilogueStep = 7;
+        wireBossHint('查看结局', () => goBossEnding());
+      });
+    }
+
+    function goBossEnding() {
+      state.player.hp = 100;
+      updateResources();
+      startBgm('story');
+      switchScreen('mapScreen');
+      state.mapLayer = 1;
+      const exitIndex = maps[1].nodes.findIndex(node => node.id === 'exit');
+      state.mapPos = exitIndex;
+      state.mapVisited[mapVisitKey(1, 'exit')] = true;
+      renderMap();
+      triggerNode(maps[1].nodes[exitIndex]);
     }
 
     function scrollModalBodyToBottom() {
@@ -5205,10 +5345,14 @@
           ? `伤害分 ${duel.playerScore} 压过压迫 ${duel.pressure}，敌方伤害折损为 ${duel.playerTaken}。`
           : `伤害分 ${duel.playerScore} 低于压迫 ${duel.pressure}，你对敌方伤害折损，敌方真实伤害完整命中。`;
         const footHint = script.hp <= 0
-          ? '请点击右下角「查看结算」。'
+          ? (script.id === 'boss' ? '' : '请点击右下角「查看结算」。')
           : '请点击右下角「继续下一步」。';
-        setBattleLog(`${patternLogLabel(turn)} · 伤害分 ${duel.playerScore}`, `${(turn.relics || []).join('\n')}\n\n${duelText}\n气血 -${duel.playerTaken}\n\n${turn.after || ''}\n\n${footHint}`);
+        setBattleLog(`${patternLogLabel(turn)} · 伤害分 ${duel.playerScore}`, `${(turn.relics || []).join('\n')}\n\n${duelText}\n气血 -${duel.playerTaken}\n\n${turn.after || ''}${footHint ? '\n\n' + footHint : ''}`);
         $('hintBtn').disabled = false;
+        if (script.hp <= 0 && script.id === 'boss') {
+          finishBattle();
+          return;
+        }
         continueAfterTurn(turn);
       });
     }
@@ -5341,6 +5485,7 @@
         return true;
       };
       const enableContinue = () => {
+        if (battle.complete) return;
         if (finishIfDead()) return;
         $('hintBtn').textContent = '继续下一步';
         setHintGlow(true);
@@ -5403,15 +5548,10 @@
       $('skillBtn').disabled = true;
       $('hintBtn').disabled = false;
       if (b.script.id === 'boss') {
+        b.epilogueShardText = shardText;
+        b.epilogueStep = 1;
         setBattleLog('战斗胜利', `${b.script.completeText}\n\n${shardText}\n\n请点击右下角「查看结算」。`);
-        b.climaxStage = null;
-        $('hintBtn').textContent = '查看结算';
-        setHintGlow(true);
-        $('hintBtn').onclick = () => {
-          if (b.climaxStage && b.climaxStage !== 'settlement') return;
-          setHintGlow(false);
-          openBossSettlementModal(shardText);
-        };
+        applyBossEpilogueStep(1);
         return;
       }
       setBattleLog('战斗胜利', `${b.script.completeText}\n\n${shardText}`);
@@ -5450,81 +5590,9 @@
       }
     }
 
-    function startClimax() {
-      const b = state.battle;
-      if (!b) {
-        showToast('战斗状态丢失，请刷新后重试');
-        return;
-      }
-      if (b.climaxStage !== 'entering') return;
-      b.climaxStage = 'intro';
-      b.turnIndex = -2;
-      b.selected = [];
-      b.script.enemy = '黑袍首领';
-      b.script.enemyLabel = '首领';
-      b.script.enemyClass = 'p-villain';
-      b.script.maxHp = 8000;
-      b.script.hp = 8000;
-      $('enemyName').textContent = '黑袍首领';
-      setEnemyStoryPortrait('首领');
-      updateEnemy();
-      setClimaxIntentDisplay('0');
-      playSfx('thunder');
-      setBattleLog('剧情杀 · 天命同归', '黑袍首领从天而降，气血 8000/8000。\n\n黑袍首领打出：♠10 ♠J ♠Q ♠K ♠A\n真实伤害 999\n\n灵脉守护发动，青棠玉佩碎裂，你的气血锁定为 1。');
-      state.player.hp = 1;
-      updateResources();
-      showPlayerHit(999);
-      $('app').style.animation = 'shake .7s ease';
-      setTimeout(() => $('app').style.animation = '', 800);
-      renderHand([]);
-      renderRelics([]);
-      $('comboPreview').innerHTML = '<strong>剧情杀 · 天命同归</strong>黑袍首领降临，敌方意图与压迫均为未知命数。';
-      $('playBtn').disabled = true;
-      $('playBtn').classList.remove('guided');
-      $('skillBtn').disabled = true;
-      $('hintBtn').disabled = false;
-      $('hintBtn').textContent = '抽取传承';
-      $('hintBtn').classList.remove('guided');
-      setHintGlow(true);
-      $('hintBtn').classList.add('guided');
-      $('hintBtn').onclick = () => {
-        $('hintBtn').classList.remove('guided');
-        setHintGlow(false);
-        renderMysticTurn();
-      };
-    }
-
-    function renderMysticTurn() {
-      const b = state.battle;
-      b.climaxStage = 'mystic';
-      b.turnIndex = 99;
-      b.selected = [];
-      b.skillMode = false;
-      b.climaxStep = 1;
-      b.hand = [
-        c('S', 1, '', ''),
-        c('S', 1, '万象·天', 'mystic'),
-        c('S', 1, '万象·地', 'mystic'),
-        c('S', 1, '万象·人', 'mystic')
-      ];
-      setClimaxIntentDisplay('0');
-      setBattleLog('万象传承', '先打出 ♠A，再依次打出三张万象牌：天、地、人。\n\n它们会复制自己左侧那张已经打出的牌。');
-      renderRelics(['万象']);
-      renderHand(b.hand);
-      updateComboPreview();
-      $('playBtn').disabled = false;
-      $('playBtn').classList.add('guided');
-      $('skillBtn').disabled = true;
-      $('skillState').textContent = '进化中';
-      $('hintBtn').textContent = '提示';
-      $('hintBtn').classList.remove('guided');
-      setHintGlow(false);
-      $('hintBtn').onclick = showHint;
-    }
-
     function playMysticIfNeeded() {
       const b = state.battle;
-      if (!b || b.turnIndex !== 99) return false;
+      if (!b || b.turnIndex !== 99 || b.epilogueStep !== 3) return false;
       const selected = b.selected.map(i => i).sort((a, z) => a - z);
       const ok = selected.length === 4 && selected.every((v, i) => v === i);
       if (!ok) {
@@ -5542,52 +5610,9 @@
         setClimaxIntentDisplay('194');
         setBattleLog('四象归位(四条 A) · 伤害分 194', '万象·天、地、人依次复制左侧，四张黑桃 A 成型。\n\n黑袍首领受到了伤害，但还没有倒下。');
         renderRelics(['青龙', '白虎']);
-        b.climaxStep = 2;
+        b.epilogueStep = 4;
         showBattleTalk('青棠', '还不够……师兄，这一次，换我护着你。', () => {
-          b.hand.push(c('S', 1, '青棠玉佩', 'mystic'));
-          b.selected = [0, 1, 2, 3, 4];
-          b.climaxStep = 3;
-          b.climaxStage = 'finale';
-          renderHand(b.hand);
-          setBattleLog('抽牌 · 第五张 A', '青棠玉佩碎裂，最后一缕金光落入牌局。\n\n你抽到了第 5 张 ♠A。青崖剑诀临时进化为“青崖·舍身”。\n\n请选择右下角「打出五条 A」。');
-          $('comboPreview').innerHTML = '<div class="combo-meter"><div class="combo-pill"><span>当前牌型</span><b>五条</b></div><div class="combo-pill"><span>伤害分</span><b>9999</b></div><div class="combo-pill"><span>倍率</span><b>×1</b></div><div class="combo-pill"><span>最终伤害分</span><b class="score-ok">9999</b></div></div>';
-          $('playBtn').disabled = true;
-          $('hintBtn').textContent = '打出五条 A';
-          setHintGlow(true);
-          $('hintBtn').classList.add('guided');
-          $('hintBtn').onclick = () => {
-            $('hintBtn').classList.remove('guided');
-            setHintGlow(false);
-            $('hintBtn').disabled = true;
-            const fiveCards = b.hand.slice();
-            const fiveTurn = { pattern: '五条 A', damage: 9999, calc: { base: 9999, flat: 0, mult: 1 }, relics: ['万象归一', '青龙玉佩 +10', '白虎坠 x2', '朱雀翎 +40', '玄武珠 x2'] };
-            playScoreSequence(fiveCards, fiveTurn, { enemyTaken: 9999, playerTaken: 0, playerScore: 9999, pressure: 0 }, () => {
-              b.hand = [];
-              b.selected = [];
-              b.script.hp = 0;
-              updateEnemy();
-              setClimaxIntentDisplay('9999');
-              renderHand([]);
-              setBattleLog('万象归一 · 五条A同花', '五张黑桃 A 同时落下，万象传承归于一线。\n最终伤害分：9999\n\n黑袍首领气血归零，被强行击退。');
-              renderRelics(['青龙', '白虎', '朱雀', '玄武']);
-              $('app').style.animation = 'shake .65s ease';
-              setTimeout(() => $('app').style.animation = '', 700);
-              $('hintBtn').disabled = false;
-              $('hintBtn').textContent = '查看结局';
-              $('hintBtn').onclick = () => {
-                state.player.hp = 100;
-                updateResources();
-                startBgm('story');
-                switchScreen('mapScreen');
-                state.mapLayer = 1;
-                const exitIndex = maps[1].nodes.findIndex(node => node.id === 'exit');
-                state.mapPos = exitIndex;
-                state.mapVisited[mapVisitKey(1, 'exit')] = true;
-                renderMap();
-                triggerNode(maps[1].nodes[exitIndex]);
-              };
-            });
-          };
+          applyBossEpilogueStep(5);
         });
       });
       return true;
