@@ -2402,6 +2402,10 @@
       display: none;
     }
 
+    .modal-actions.review-mode #modalScrollTop {
+      display: inline-block;
+    }
+
     .review-entry {
       padding: 9px 0;
       border-bottom: 1px solid rgba(90, 58, 22, .18);
@@ -3530,8 +3534,48 @@
     }
 
     function setModalScrollTopVisible(show) {
-      const btn = $('modalScrollTop');
-      if (btn) btn.style.display = show ? '' : 'none';
+      const actions = document.querySelector('.modal-actions');
+      if (actions) actions.classList.toggle('review-mode', Boolean(show));
+    }
+
+    function dismissModal() {
+      state.modalOnClose = null;
+      setModalScrollTopVisible(false);
+      $('modal').classList.remove('active');
+      $('modalText').innerHTML = '';
+      $('modalClose').textContent = '关闭';
+      $('modalClose').onclick = closeModal;
+    }
+
+    function wireClimaxHintButton() {
+      $('playBtn').disabled = true;
+      $('playBtn').classList.remove('guided');
+      $('hintBtn').disabled = false;
+      $('hintBtn').textContent = '抽取传承';
+      $('hintBtn').classList.remove('guided');
+      setHintGlow(true);
+      $('hintBtn').classList.add('guided');
+      $('hintBtn').onclick = () => {
+        $('hintBtn').classList.remove('guided');
+        setHintGlow(false);
+        renderMysticTurn();
+      };
+    }
+
+    function advanceBossToClimax() {
+      dismissModal();
+      try {
+        startClimax();
+      } finally {
+        if (state.battle) wireClimaxHintButton();
+      }
+    }
+
+    function openBossSettlementModal(shardText) {
+      showModal('Boss 战胜利', `黑雾执事已经被击败。\n\n${shardText}\n\n黑袍首领正在逼近。`);
+      $('modalClose').textContent = '继续剧情';
+      $('modalClose').onclick = advanceBossToClimax;
+      state.modalOnClose = advanceBossToClimax;
     }
 
     function scrollModalBodyToBottom() {
@@ -3587,8 +3631,6 @@
     function showReview() {
       const html = `<div class="review-list">${state.logs.map(item => `<div class="review-entry"><strong>${item.title}</strong>\n${item.text}</div>`).join('') || '暂无记录。'}</div>`;
       showModalHtml('文本回顾', html);
-      $('modalClose').textContent = '关闭';
-      $('modalClose').onclick = closeModal;
       state.modalOnClose = null;
       setModalScrollTopVisible(true);
       scrollModalBodyToBottom();
@@ -5352,15 +5394,7 @@
         setHintGlow(true);
         $('hintBtn').onclick = () => {
           setHintGlow(false);
-          showModal('Boss 战胜利', `黑雾执事已经被击败。\n\n${shardText}\n\n黑袍首领正在逼近。`);
-          $('modalClose').textContent = '继续剧情';
-          $('modalClose').onclick = () => {
-            $('modalClose').textContent = '关闭';
-            $('modalClose').onclick = closeModal;
-            state.modalOnClose = null;
-            closeModal();
-            startClimax();
-          };
+          openBossSettlementModal(shardText);
         };
         return;
       }
@@ -5388,7 +5422,10 @@
 
     function startClimax() {
       const b = state.battle;
-      if (!b) return;
+      if (!b) {
+        showToast('战斗状态丢失，请刷新后重试');
+        return;
+      }
       b.script.enemy = '黑袍首领';
       b.script.enemyLabel = '首领';
       b.script.enemyClass = 'p-villain';
@@ -5413,18 +5450,6 @@
       showPlayerHit(999);
       $('app').style.animation = 'shake .7s ease';
       setTimeout(() => $('app').style.animation = '', 800);
-      $('playBtn').disabled = true;
-      $('playBtn').classList.remove('guided');
-      $('hintBtn').disabled = false;
-      $('hintBtn').textContent = '抽取传承';
-      $('hintBtn').classList.remove('guided');
-      setHintGlow(true);
-      $('hintBtn').classList.add('guided');
-      $('hintBtn').onclick = () => {
-        $('hintBtn').classList.remove('guided');
-        setHintGlow(false);
-        renderMysticTurn();
-      };
     }
 
     function renderMysticTurn() {
