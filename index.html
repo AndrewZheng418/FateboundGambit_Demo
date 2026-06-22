@@ -3364,7 +3364,7 @@
           }
         ],
         rewardLuck: 120,
-        completeText: '黑雾执事倒下，黑袍首领从天而降。'
+        completeText: '黑雾执事已被击败。'
       }
     };
 
@@ -3549,7 +3549,7 @@
 
     function openBossSettlementModal(shardText) {
       const b = state.battle;
-      if (!b || (b.climaxStage && b.climaxStage !== 'settlement')) return;
+      if (!b || b.climaxStage === 'intro' || b.climaxStage === 'mystic' || b.climaxStage === 'finale' || b.climaxStage === 'entering') return;
       b.climaxStage = 'settlement';
       const onContinue = (e) => {
         if (e) {
@@ -3563,10 +3563,10 @@
         $('modalClose').textContent = '关闭';
         $('modalClose').onclick = closeModal;
         b.climaxStage = 'entering';
-        setTimeout(() => startClimax(), 0);
+        startClimax();
       };
-      showModal('Boss 战胜利', `黑雾执事已经被击败。\n\n${shardText}\n\n黑袍首领正在逼近。`);
-      state.modalOnClose = onContinue;
+      showModal('Boss 战胜利', `黑雾执事已经被击败。\n\n${shardText}`);
+      state.modalOnClose = null;
       $('modalClose').textContent = '继续剧情';
       $('modalClose').onclick = onContinue;
     }
@@ -5204,7 +5204,10 @@
         const duelText = duel.playerScore >= duel.pressure
           ? `伤害分 ${duel.playerScore} 压过压迫 ${duel.pressure}，敌方伤害折损为 ${duel.playerTaken}。`
           : `伤害分 ${duel.playerScore} 低于压迫 ${duel.pressure}，你对敌方伤害折损，敌方真实伤害完整命中。`;
-        setBattleLog(`${patternLogLabel(turn)} · 伤害分 ${duel.playerScore}`, `${(turn.relics || []).join('\n')}\n\n${duelText}\n气血 -${duel.playerTaken}\n\n${turn.after || ''}\n\n请点击右下角「继续下一步」。`);
+        const footHint = script.hp <= 0
+          ? '请点击右下角「查看结算」。'
+          : '请点击右下角「继续下一步」。';
+        setBattleLog(`${patternLogLabel(turn)} · 伤害分 ${duel.playerScore}`, `${(turn.relics || []).join('\n')}\n\n${duelText}\n气血 -${duel.playerTaken}\n\n${turn.after || ''}\n\n${footHint}`);
         $('hintBtn').disabled = false;
         continueAfterTurn(turn);
       });
@@ -5332,7 +5335,13 @@
     function continueAfterTurn(turn) {
       const battle = state.battle;
       const script = battle.script;
+      const finishIfDead = () => {
+        if (script.hp > 0) return false;
+        finishBattle();
+        return true;
+      };
       const enableContinue = () => {
+        if (finishIfDead()) return;
         $('hintBtn').textContent = '继续下一步';
         setHintGlow(true);
         $('hintBtn').onclick = () => {
@@ -5389,12 +5398,13 @@
       updateResources();
       if (b.script.rewardLuck) addLog('战斗结算', `获得气运 +${b.script.rewardLuck}，当前气运 ${state.player.luck}。\n本局累计命尘：${state.player.qiPool}`);
       const shardText = `本战造成伤害 ${b.shardsEarned}，获得命尘 ${b.shardsEarned}。\n当前累计命尘：${state.player.qiPool}。`;
-      setBattleLog('战斗胜利', `${b.script.completeText}\n\n${shardText}`);
       renderHand([]);
       $('playBtn').disabled = true;
       $('skillBtn').disabled = true;
       $('hintBtn').disabled = false;
       if (b.script.id === 'boss') {
+        setBattleLog('战斗胜利', `${b.script.completeText}\n\n${shardText}\n\n请点击右下角「查看结算」。`);
+        b.climaxStage = null;
         $('hintBtn').textContent = '查看结算';
         setHintGlow(true);
         $('hintBtn').onclick = () => {
@@ -5404,6 +5414,7 @@
         };
         return;
       }
+      setBattleLog('战斗胜利', `${b.script.completeText}\n\n${shardText}`);
       $('hintBtn').textContent = '查看结算';
       setHintGlow(true);
       $('hintBtn').onclick = () => {
@@ -5445,7 +5456,7 @@
         showToast('战斗状态丢失，请刷新后重试');
         return;
       }
-      if (b.climaxStage === 'mystic' || b.climaxStage === 'finale') return;
+      if (b.climaxStage !== 'entering') return;
       b.climaxStage = 'intro';
       b.turnIndex = -2;
       b.selected = [];
