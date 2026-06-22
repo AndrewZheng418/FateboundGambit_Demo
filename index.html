@@ -2381,18 +2381,21 @@
     .modal-actions {
       display: flex;
       gap: 8px;
-      align-items: stretch;
+      justify-content: flex-start;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .modal-actions .ghost-btn,
+    .modal-actions .primary-btn {
+      flex: none;
+      width: auto;
+      min-height: 40px;
     }
 
     .modal-actions .ghost-btn {
-      flex: 0 0 auto;
-      min-height: 40px;
       padding: 0 12px;
       font-size: 13px;
-    }
-
-    .modal-actions .primary-btn {
-      flex: 1;
     }
 
     #modalScrollTop {
@@ -3546,6 +3549,8 @@
       $('modalTitle').textContent = title;
       $('modalText').textContent = text;
       bindDragScroll($('modalText'));
+      $('modalClose').textContent = '关闭';
+      $('modalClose').onclick = closeModal;
       $('modal').classList.add('active');
     }
 
@@ -3555,6 +3560,8 @@
       $('modalTitle').textContent = title;
       $('modalText').innerHTML = html;
       bindDragScroll($('modalText'));
+      $('modalClose').textContent = '关闭';
+      $('modalClose').onclick = closeModal;
       $('modal').classList.add('active');
     }
 
@@ -3580,6 +3587,9 @@
     function showReview() {
       const html = `<div class="review-list">${state.logs.map(item => `<div class="review-entry"><strong>${item.title}</strong>\n${item.text}</div>`).join('') || '暂无记录。'}</div>`;
       showModalHtml('文本回顾', html);
+      $('modalClose').textContent = '关闭';
+      $('modalClose').onclick = closeModal;
+      state.modalOnClose = null;
       setModalScrollTopVisible(true);
       scrollModalBodyToBottom();
     }
@@ -4331,8 +4341,7 @@
         deckSort: 'suit',
         rulesSeen: false,
         shardsEarned: 0,
-        complete: false,
-        climaxStarted: false
+        complete: false
       };
       $('battleBg').className = 'painted-bg ' + script.bg;
       $('enemyName').textContent = script.enemy;
@@ -5325,35 +5334,6 @@
       setTimeout(() => el.remove(), tier === 'tier-extreme' ? 1400 : 1200);
     }
 
-    function wireBossVictoryModal(shardText) {
-      const body = `黑雾执事已经被击败。\n\n${shardText}\n\n黑袍首领正在逼近。`;
-      const commitBossClimax = () => {
-        $('modal').classList.remove('active');
-        $('modalText').innerHTML = '';
-        state.modalOnClose = null;
-        setModalScrollTopVisible(false);
-        $('modalClose').textContent = '关闭';
-        $('modalClose').onclick = closeModal;
-        enterBossClimaxPhase();
-      };
-      setModalScrollTopVisible(false);
-      $('modalTitle').textContent = 'Boss 战胜利';
-      $('modalText').textContent = body;
-      bindDragScroll($('modalText'));
-      $('modal').classList.add('active');
-      $('modalClose').textContent = '继续剧情';
-      $('modalClose').onclick = commitBossClimax;
-      state.modalOnClose = commitBossClimax;
-    }
-
-    function enterBossClimaxPhase() {
-      const b = state.battle;
-      if (!b || b.turnIndex === 99) return;
-      setHintGlow(false);
-      $('hintBtn').disabled = false;
-      startClimax();
-    }
-
     function finishBattle() {
       const b = state.battle;
       if (!b || b.complete) return;
@@ -5372,7 +5352,15 @@
         setHintGlow(true);
         $('hintBtn').onclick = () => {
           setHintGlow(false);
-          wireBossVictoryModal(shardText);
+          showModal('Boss 战胜利', `黑雾执事已经被击败。\n\n${shardText}\n\n黑袍首领正在逼近。`);
+          $('modalClose').textContent = '继续剧情';
+          $('modalClose').onclick = () => {
+            $('modalClose').textContent = '关闭';
+            $('modalClose').onclick = closeModal;
+            state.modalOnClose = null;
+            closeModal();
+            startClimax();
+          };
         };
         return;
       }
@@ -5385,6 +5373,7 @@
         $('modalClose').onclick = () => {
           $('modalClose').textContent = '关闭';
           $('modalClose').onclick = closeModal;
+          state.modalOnClose = null;
           closeModal();
           startBgm('story');
           $('hintBtn').textContent = '提示';
@@ -5397,28 +5386,9 @@
       };
     }
 
-    function wireClimaxHint() {
-      $('playBtn').disabled = true;
-      $('playBtn').classList.remove('guided');
-      $('hintBtn').disabled = false;
-      $('hintBtn').textContent = '抽取传承';
-      $('hintBtn').classList.remove('guided');
-      setHintGlow(true);
-      $('hintBtn').classList.add('guided');
-      $('hintBtn').onclick = () => {
-        $('hintBtn').classList.remove('guided');
-        setHintGlow(false);
-        renderMysticTurn();
-      };
-    }
-
     function startClimax() {
       const b = state.battle;
-      if (!b || b.turnIndex === 99) return;
-      if (b.climaxStarted) {
-        wireClimaxHint();
-        return;
-      }
+      if (!b) return;
       b.script.enemy = '黑袍首领';
       b.script.enemyLabel = '首领';
       b.script.enemyClass = 'p-villain';
@@ -5443,8 +5413,18 @@
       showPlayerHit(999);
       $('app').style.animation = 'shake .7s ease';
       setTimeout(() => $('app').style.animation = '', 800);
-      b.climaxStarted = true;
-      wireClimaxHint();
+      $('playBtn').disabled = true;
+      $('playBtn').classList.remove('guided');
+      $('hintBtn').disabled = false;
+      $('hintBtn').textContent = '抽取传承';
+      $('hintBtn').classList.remove('guided');
+      setHintGlow(true);
+      $('hintBtn').classList.add('guided');
+      $('hintBtn').onclick = () => {
+        $('hintBtn').classList.remove('guided');
+        setHintGlow(false);
+        renderMysticTurn();
+      };
     }
 
     function renderMysticTurn() {
