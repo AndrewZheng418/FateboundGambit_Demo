@@ -3547,16 +3547,28 @@
       $('modalClose').onclick = closeModal;
     }
 
-    function advanceBossToClimax() {
-      dismissModal();
-      startClimax();
-    }
-
     function openBossSettlementModal(shardText) {
+      const b = state.battle;
+      if (!b || (b.climaxStage && b.climaxStage !== 'settlement')) return;
+      b.climaxStage = 'settlement';
+      const onContinue = (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        state.modalOnClose = null;
+        $('modal').classList.remove('active');
+        $('modalText').innerHTML = '';
+        setModalScrollTopVisible(false);
+        $('modalClose').textContent = '关闭';
+        $('modalClose').onclick = closeModal;
+        b.climaxStage = 'entering';
+        setTimeout(() => startClimax(), 0);
+      };
       showModal('Boss 战胜利', `黑雾执事已经被击败。\n\n${shardText}\n\n黑袍首领正在逼近。`);
+      state.modalOnClose = onContinue;
       $('modalClose').textContent = '继续剧情';
-      $('modalClose').onclick = advanceBossToClimax;
-      state.modalOnClose = advanceBossToClimax;
+      $('modalClose').onclick = onContinue;
     }
 
     function scrollModalBodyToBottom() {
@@ -5386,6 +5398,7 @@
         $('hintBtn').textContent = '查看结算';
         setHintGlow(true);
         $('hintBtn').onclick = () => {
+          if (b.climaxStage && b.climaxStage !== 'settlement') return;
           setHintGlow(false);
           openBossSettlementModal(shardText);
         };
@@ -5432,6 +5445,8 @@
         showToast('战斗状态丢失，请刷新后重试');
         return;
       }
+      if (b.climaxStage === 'mystic' || b.climaxStage === 'finale') return;
+      b.climaxStage = 'intro';
       b.turnIndex = -2;
       b.selected = [];
       b.script.enemy = '黑袍首领';
@@ -5470,6 +5485,7 @@
 
     function renderMysticTurn() {
       const b = state.battle;
+      b.climaxStage = 'mystic';
       b.turnIndex = 99;
       b.selected = [];
       b.skillMode = false;
@@ -5520,6 +5536,7 @@
           b.hand.push(c('S', 1, '青棠玉佩', 'mystic'));
           b.selected = [0, 1, 2, 3, 4];
           b.climaxStep = 3;
+          b.climaxStage = 'finale';
           renderHand(b.hand);
           setBattleLog('抽牌 · 第五张 A', '青棠玉佩碎裂，最后一缕金光落入牌局。\n\n你抽到了第 5 张 ♠A。青崖剑诀临时进化为“青崖·舍身”。\n\n请选择右下角「打出五条 A」。');
           $('comboPreview').innerHTML = '<div class="combo-meter"><div class="combo-pill"><span>当前牌型</span><b>五条</b></div><div class="combo-pill"><span>伤害分</span><b>9999</b></div><div class="combo-pill"><span>倍率</span><b>×1</b></div><div class="combo-pill"><span>最终伤害分</span><b class="score-ok">9999</b></div></div>';
