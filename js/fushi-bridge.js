@@ -1689,7 +1689,11 @@
           : cur.kind === "stairs"
             ? "\n这是本页最后一格。走上来会翻开此牌，确认后再前往新区域。"
             : cur.kind === "exit"
-              ? "\n这是最后一页的终点格，可从这里撤离。"
+              ? FateExplore.canExtract(run)
+                ? "\n已抵达终点。击败首领后可从这里撤离，带走本局收获。"
+                : FateExplore.mapHasBoss(run) && !run.bossDefeated
+                  ? "\n已抵达终点，但本层首领还没倒下。先去打红色的首领牌，再回到这里撤离。"
+                  : "\n这是最后一页的终点格，可从这里撤离。"
               : "\n可用右下角方向键或点击相邻发光牌继续。");
     }
     const box = $("deepMapChoices");
@@ -1701,8 +1705,9 @@
     if (cur.kind === "exit" || cur.type === "撤离") {
       box.style.display = "grid";
       const b = document.createElement("button");
-      b.className = "choice-btn";
-      b.textContent = "尝试撤离";
+      const ready = FateExplore.canExtract(run);
+      b.className = ready ? "primary-btn" : "choice-btn";
+      b.textContent = ready ? "撤离" : "尝试撤离";
       b.onclick = () => tryExtract();
       box.appendChild(b);
       return;
@@ -1836,12 +1841,11 @@
   function tryExtract() {
     const run = Bridge.run;
     if (!run) return;
-    const ok = FateExplore.canExtract(run);
-    if (ok) {
+    if (FateExplore.canExtract(run)) {
       showModalHtmlSafe(
         "撤离",
-        `<p>已击败首领。撤离后将带回本局奖励。</p>
-         <button class="choice-btn" id="confirmExtract" style="width:100%;margin-top:8px;">确认撤离</button>`
+        `<p>已抵达终点。撤离后将带回本局奖励。</p>
+         <button class="primary-btn" id="confirmExtract" style="width:100%;margin-top:8px;">确认撤离</button>`
       );
       const b = $("confirmExtract");
       if (b) b.onclick = () => {
@@ -1850,11 +1854,27 @@
       };
       return;
     }
-    showModalHtmlSafe(
-      "提前撤离",
-      `<p>尚未达到撤离要求（需击败首领并完成足够命运牌）。现在离开会失去本局已获得的奖励。</p>
-       <button class="choice-btn" id="confirmExtract" style="width:100%;margin-top:8px;">确认放弃奖励并返回</button>`
-    );
+    const onExit = FateExplore.onExitCell(run);
+    const needBoss = FateExplore.mapHasBoss(run) && !run.bossDefeated;
+    if (onExit && needBoss) {
+      showModalHtmlSafe(
+        "先击败首领",
+        `<p>这已经是最后一格。请先去打红色的首领牌，再回到这里撤离，才能带走本局收获。</p>
+         <button class="choice-btn" id="confirmExtract" style="width:100%;margin-top:8px;">放弃收获并离开</button>`
+      );
+    } else if (!onExit) {
+      showModalHtmlSafe(
+        "撤离",
+        `<p>请先走到本页最上方的撤离格（归）。现在离开会失去本局已获得的奖励。</p>
+         <button class="choice-btn" id="confirmExtract" style="width:100%;margin-top:8px;">放弃收获并离开</button>`
+      );
+    } else {
+      showModalHtmlSafe(
+        "提前撤离",
+        `<p>现在离开会失去本局已获得的奖励。</p>
+         <button class="choice-btn" id="confirmExtract" style="width:100%;margin-top:8px;">放弃收获并离开</button>`
+      );
+    }
     const b = $("confirmExtract");
     if (b)
       b.onclick = () => {

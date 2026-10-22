@@ -86,7 +86,7 @@
       layer,
       revealed: !!spec.revealed,
       resolved: !!spec.resolved,
-      isBoss: false,
+      isBoss: !!spec.isBoss,
       icon: spec.icon || meta.icon,
       mark: spec.mark || meta.mark,
       kind: spec.kind || meta.kind,
@@ -111,57 +111,85 @@
     coords.push({ item: items[n - 1], x: 50, y: 16, layer });
     return coords;
   }
-  function pickMapContent(rest, maxN) {
-    const groups = { flip: [], shop: [], battle: [], other: [] };
-    const xin = [];
-    rest.forEach((c) => {
-      const t = (c.conf && c.conf.类型) || "";
-      if (t === "问心") xin.push(c);
-      else if (isFlipType(t)) groups.flip.push(c);
-      else if (t === "商店") groups.shop.push(c);
-      else if (t === "战斗") groups.battle.push(c);
-      else groups.other.push(c);
-    });
-    groups.flip = xin.concat(groups.flip);
-    const out = [];
-    const take = (arr) => {
-      if (!arr.length || out.length >= maxN) return false;
-      out.push(arr.shift());
-      return true;
-    };
-    const cycle = ["flip", "shop", "flip", "battle", "flip", "other"];
-    let guard = 0;
-    while (out.length < maxN && guard < 80) {
-      guard += 1;
-      let added = false;
-      cycle.forEach((k) => {
-        if (take(groups[k])) added = true;
+  function contentKind(c) {
+    const t = (c.conf && c.conf.类型) || "";
+    if (t === "问心") return "fortune";
+    if (t === "灵藏") return "treasure";
+    if (t === "商店") return "shop";
+    if (t === "战斗") return "battle";
+    if (t === "剧情") return "story";
+    return "event";
+  }
+  function pickMapContent(rest, nLayers, perLayer) {
+    const bags = { fortune: [], treasure: [], shop: [], battle: [], story: [], event: [] };
+    shuffle(rest).forEach((c) => bags[contentKind(c)].push(c));
+    const order = ["battle", "fortune", "shop", "story", "treasure", "event"];
+    const mixed = [];
+    let added = true;
+    while (added) {
+      added = false;
+      order.forEach((k) => {
+        if (bags[k].length) {
+          mixed.push({ k, c: bags[k].shift() });
+          added = true;
+        }
       });
-      if (!added) break;
     }
-    return out;
+    const layers = Array.from({ length: nLayers }, () => []);
+    const xin = Array(nLayers).fill(0);
+    let cursor = 0;
+    mixed.forEach((item) => {
+      for (let t = 0; t < nLayers; t++) {
+        const i = (cursor + t) % nLayers;
+        if (layers[i].length >= perLayer) continue;
+        if (item.k === "fortune" && xin[i] >= 1) continue;
+        layers[i].push(item.c);
+        if (item.k === "fortune") xin[i] += 1;
+        cursor = i + 1;
+        return;
+      }
+    });
+    return layers.map((slot) => shuffle(slot));
   }
   function enrichFlipPool(ids, config) {
     const list = (ids || []).slice();
     const used = new Set(list);
-    const flipOf = (id) => isFlipType((config.fateCards[id] || {}).类型);
-    let have = list.filter(flipOf).length;
-    const want = Math.max(4, Math.ceil(list.length * 0.38));
-    if (have >= want) return list;
-    const extras = Object.keys(config.fateCards || {})
-      .filter((id) => flipOf(id) && !used.has(id))
-      .sort();
-    for (let i = list.length - 1; i >= 0 && have < want && extras.length; i--) {
-      const t = (config.fateCards[list[i]] || {}).类型;
-      if (t === "事件" || t === "剧情") {
+    const typeOf = (id) => (config.fateCards[id] || {}).类型;
+    const extrasOf = (type) =>
+      Object.keys(config.fateCards || {}).filter((id) => typeOf(id) === type && !used.has(id));
+    const fill = (type, want) => {
+      let have = list.filter((id) => typeOf(id) === type).length;
+      const extras = extrasOf(type);
+      for (let i = list.length - 1; i >= 0 && have < want && extras.length; i--) {
+        const t = typeOf(list[i]);
+        if (t !== "事件" && t !== "剧情") continue;
         const next = extras.shift();
         used.delete(list[i]);
         used.add(next);
         list[i] = next;
         have += 1;
       }
-    }
+    };
+    fill("问心", 2);
+    fill("灵藏", 3);
     return list;
+  }
+  function fallbackBoss(bossMob, config) {
+    const mob = (config.monsters && config.monsters[bossMob]) || {};
+    return {
+      fid: "",
+      conf: {
+        名称: mob.名称 || "本层首领",
+        类型: "战斗",
+        正文: "这是本层最后的拦路之人。击败后，才能从终点格撤离并带走收获。",
+        选项1文本: "挑战首领",
+        选项1效果类型: "START_BATTLE",
+        选项1参数: bossMob,
+        怪物ID: bossMob,
+        备注: "BOSS",
+      },
+      isBoss: true,
+    };
   }
 
   /**
@@ -177,10 +205,7 @@
     const rest = parsed.filter((x) => !x.isBoss && (x.conf.类型 || "") !== "撤离");
     const CONTENT_PER_LAYER = 5;
     const nLayers = rest.length >= 6 ? 2 : 1;
-    const content = pickMapContent(rest, nLayers * CONTENT_PER_LAYER);
-    const buckets = [];
-    const per = Math.ceil(content.length / nLayers) || 1;
-    for (let L = 0; L < nLayers; L++) buckets.push(content.slice(L * per, (L + 1) * per));
+    const buckets = pickMapContent(rest, nLayers, CONTENT_PER_LAYER);
     const nodes = [];
     const edges = [];
     for (let L = 0; L < nLayers; L++) {
@@ -200,7 +225,7 @@
       });
       (buckets[L] || []).forEach((c) => layerItems.push(c));
       if (isLast) {
-        if (bosses[0]) layerItems.push(bosses[0]);
+        layerItems.push(bosses[0] || fallbackBoss(bossMob, config));
         layerItems.push({
           structural: true,
           name: "撤离",
@@ -245,13 +270,24 @@
           );
         } else {
           const node = makeNode(item.fid, config, bossMob, nodes.length, p.x, p.y, L);
+          if (item.conf) {
+            node.conf = item.conf;
+            node.name = item.conf.名称 || node.name;
+            node.type = item.conf.类型 || node.type;
+            node.isBoss = !!item.isBoss || isBossCard(item.conf, bossMob);
+            const meta = typeMeta(node.type, node.isBoss);
+            node.icon = meta.icon;
+            node.mark = meta.mark;
+            node.kind = meta.kind;
+          }
           node.revealed = false;
           nodes.push(node);
         }
       });
-      for (let i = startIndex; i < nodes.length - 1; i++) edges.push([i, i + 1]);
-      for (let i = startIndex + 1; i < nodes.length - 2; i++) {
-        if ((i - startIndex) % 3 === 0) edges.push([i, Math.min(nodes.length - 1, i + 2)]);
+      const last = nodes.length - 1;
+      for (let i = startIndex; i < last; i++) edges.push([i, i + 1]);
+      for (let i = startIndex + 1; i < last - 1; i++) {
+        if ((i - startIndex) % 3 === 0 && i + 2 < last) edges.push([i, i + 2]);
       }
     }
     return { nodes, edges };
@@ -354,9 +390,18 @@
     return { ok: true, arrivedStairs: !!(next && (next.kind === "stairs" || next.flipLayer)), layer: run.layer };
   }
 
+  function onExitCell(run) {
+    const cur = run && run.nodes && run.nodes[run.pos];
+    return !!(cur && (cur.kind === "exit" || cur.type === "撤离"));
+  }
+  function mapHasBoss(run) {
+    return !!(run && (run.nodes || []).some((n) => n.isBoss));
+  }
   function canExtract(run) {
-    const min = Number(run.rule.最少命运卡) || 1;
-    return run.bossDefeated && run.completed >= min && !run.extracted;
+    if (!run || run.extracted) return false;
+    if (!onExitCell(run)) return false;
+    if (mapHasBoss(run) && !run.bossDefeated) return false;
+    return true;
   }
 
   function applyEffect(run, type, param) {
@@ -447,6 +492,8 @@
     getAvailable,
     moveTo,
     canExtract,
+    onExitCell,
+    mapHasBoss,
     resolveChoice,
     markResolved,
     afterBattleVictory,
