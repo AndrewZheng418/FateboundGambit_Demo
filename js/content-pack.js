@@ -99,6 +99,13 @@
     HERITAGE_048: { 传承ID: "HERITAGE_048", 名称: "穷奇之心", 效果类型: "ADD_SCORE_FLAT", 参数A: 45, 描述: "食人反忠。对子与顺子都吃得下，出牌伤害分+45。" },
     HERITAGE_049: { 传承ID: "HERITAGE_049", 名称: "梼杌之心", 效果类型: "ADD_SCORE_FLAT", 参数A: 45, 描述: "不可教诲。同花与顺子都吃得下，出牌伤害分+45。" },
   };
+  const heritageGrowHp = {
+    HERITAGE_034: 1, HERITAGE_035: 1, HERITAGE_038: 1, HERITAGE_039: 1, HERITAGE_044: 1, HERITAGE_046: 1,
+  };
+  Object.keys(heritages).forEach((id) => {
+    heritages[id].养成属性 = heritageGrowHp[id] ? "气血" : "攻击";
+    heritages[id].升级命尘 = 200;
+  });
 
   const renSkills = {
     REN_005: { 人和ID: "REN_005", 名称: "点星", 效果类型: "ADD_SCORE_FLAT", 参数A: 25, 每场次数: 1, 描述: "青棠教的小技。本回合星/月/日各视为再+25 伤害分（简化为一次+25）。" },

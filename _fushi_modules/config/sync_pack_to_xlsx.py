@@ -392,6 +392,21 @@ def main():
     for hid, data in HERITAGES.items():
         extra = {"传承ID": hid, "部位": data.get("部位", "心"), "使用场景": "战斗", "存放位置": "仓库解锁/传承台装备"}
         upsert(ws, h, {"传承ID": hid}, data, extra)
+    heritage_hp = {
+        "HERITAGE_002", "HERITAGE_006", "HERITAGE_009", "HERITAGE_010",
+        "HERITAGE_013", "HERITAGE_014", "HERITAGE_019", "HERITAGE_021",
+        "HERITAGE_023", "HERITAGE_024", "HERITAGE_025", "HERITAGE_026",
+        "HERITAGE_029", "HERITAGE_030", "HERITAGE_034", "HERITAGE_035",
+        "HERITAGE_038", "HERITAGE_039", "HERITAGE_044", "HERITAGE_046",
+    }
+    ensure_col(ws, h, "养成属性")
+    ensure_col(ws, h, "升级命尘")
+    for r in range(2, last_data_row(ws) + 1):
+        hid = str(ws.cell(r, h["传承ID"]).value or "")
+        if not hid.startswith("HERITAGE_"):
+            continue
+        ws.cell(r, h["养成属性"], "气血" if hid in heritage_hp else "攻击")
+        ws.cell(r, h["升级命尘"], 200)
 
     ws = wb["06_宝物"]
     h = headers_of(ws)

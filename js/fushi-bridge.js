@@ -140,6 +140,7 @@
       p.worldProgress.WORLD_YAO.unlockedDepth = Math.max(p.worldProgress.WORLD_YAO.unlockedDepth || 0, 1);
     }
     ensureFateDecks(p);
+    ensureHeritageLevels(p);
   }
   function setProfile(p) {
     Bridge.profile = p;
@@ -563,27 +564,120 @@
     toast(`已消耗 ${price} 命尘，解锁「${c.名称}」`);
     renderFateCodexList();
   }
+
+  const HERO_BASE_ATK = 10;
+  const HERO_BASE_HP = 100;
+  const HERITAGE_DUST_PER_POINT = 200;
+  const HERITAGE_GROW_HP = {
+    HERITAGE_002: 1, HERITAGE_006: 1, HERITAGE_009: 1, HERITAGE_010: 1,
+    HERITAGE_013: 1, HERITAGE_014: 1, HERITAGE_019: 1, HERITAGE_021: 1,
+    HERITAGE_023: 1, HERITAGE_024: 1, HERITAGE_025: 1, HERITAGE_026: 1,
+    HERITAGE_029: 1, HERITAGE_030: 1, HERITAGE_034: 1, HERITAGE_035: 1,
+    HERITAGE_038: 1, HERITAGE_039: 1, HERITAGE_044: 1, HERITAGE_046: 1,
+  };
+  function ensureHeritageLevels(p) {
+    if (!p) return {};
+    if (!p.heritageLevels || typeof p.heritageLevels !== "object") p.heritageLevels = {};
+    return p.heritageLevels;
+  }
+  function heritageGrowKind(h) {
+    const raw = String((h && (h.养成属性 || h.grow)) || "").trim();
+    if (raw.indexOf("气") >= 0 || /^hp$/i.test(raw)) return "hp";
+    if (raw.indexOf("攻") >= 0 || /^atk$/i.test(raw)) return "atk";
+    const id = h && (h.传承ID || h.id);
+    if (id && HERITAGE_GROW_HP[id]) return "hp";
+    const t = String((h && h.效果类型) || "");
+    if (t === "TRUE_DAMAGE_REDUCE" || t === "PRESSURE_REDUCE" || t === "HEAL_HP") return "hp";
+    return "atk";
+  }
+  function heritageLevelOf(id) {
+    const lv = ensureHeritageLevels(Bridge.profile);
+    return Math.max(0, Math.floor(Number(lv[id]) || 0));
+  }
+  function heroBaseStats(profile) {
+    const p = profile || Bridge.profile;
+    const cfg = Bridge.config || {};
+    let atk = HERO_BASE_ATK;
+    let hp = HERO_BASE_HP;
+    const levels = (p && p.heritageLevels) || {};
+    Object.keys(levels).forEach((id) => {
+      const n = Math.max(0, Math.floor(Number(levels[id]) || 0));
+      if (!n) return;
+      const h = (cfg.heritages || {})[id] || { 传承ID: id };
+      if (heritageGrowKind(h) === "hp") hp += n;
+      else atk += n;
+    });
+    return { atk, hp };
+  }
+  function applyHeroHpToRun(run) {
+    if (!run) return;
+    const stats = heroBaseStats();
+    const bonus = Math.max(0, stats.hp - HERO_BASE_HP);
+    const ruleHp = Number(run.maxHp) || HERO_BASE_HP;
+    run.maxHp = ruleHp + bonus;
+    run.hp = run.maxHp;
+  }
+  function upgradeHeritage(id) {
+    const p = Bridge.profile;
+    const h = (Bridge.config && Bridge.config.heritages || {})[id];
+    if (!p || !h) return;
+    const unlocked = new Set(p.unlockedHeritage || []);
+    if (!unlocked.has(id)) return toast("先解锁这道传承");
+    const price = Number(h.升级命尘) > 0 ? Number(h.升级命尘) : HERITAGE_DUST_PER_POINT;
+    if (!FateSave.spendCurrency(p, "mingChen", price)) return toast(`命尘不足，升级需 ${price}`);
+    const lv = ensureHeritageLevels(p);
+    lv[id] = heritageLevelOf(id) + 1;
+    saveProfile();
+    refreshBaseTopbar();
+    const kind = heritageGrowKind(h);
+    const stats = heroBaseStats();
+    toast(
+      `「${h.名称 || id}」升至 ${lv[id]} 级，基础${kind === "hp" ? "气血" : "攻击力"} +1（当前攻击 ${stats.atk} / 气血 ${stats.hp}）`
+    );
+    showHeritage();
+  }
   function showHeritage() {
     withConfig(() => {
       const cfg = Bridge.config || {};
       const unlocked = new Set((Bridge.profile && Bridge.profile.unlockedHeritage) || ["HERITAGE_001"]);
       const equipped = new Set((Bridge.profile && Bridge.profile.equippedHeritage) || []);
       const all = Object.values(cfg.heritages || {}).sort((a, b) => String(a.传承ID).localeCompare(String(b.传承ID)));
+      const stats = heroBaseStats();
+      const dust = (Bridge.profile && Bridge.profile.currencies && Bridge.profile.currencies.mingChen) || 0;
       const rows = all
         .map((h) => {
           const on = unlocked.has(h.传承ID);
           const eq = equipped.has(h.传承ID);
+          const kind = heritageGrowKind(h);
+          const lv = heritageLevelOf(h.传承ID);
+          const price = Number(h.升级命尘) > 0 ? Number(h.升级命尘) : HERITAGE_DUST_PER_POINT;
+          const growName = kind === "hp" ? "基础气血" : "基础攻击力";
           const body = on ? esc(h.描述 || "") : "完成对应机缘后解锁。";
-          const btn = on
-            ? `<button class="ghost-btn" data-eq="${esc(h.传承ID)}" style="margin-top:8px;min-height:32px;width:auto;padding:0 10px;">${eq ? "卸下" : "装备"}</button>`
+          const grow = `养成：每级 +1 ${growName}　当前 ${lv} 级（已提供 ${growName} +${lv}）`;
+          const btns = on
+            ? `<div class="hub-row-actions">
+                <button class="ghost-btn" data-eq="${esc(h.传承ID)}">${eq ? "卸下" : "装备"}</button>
+                <button class="primary-btn" data-up="${esc(h.传承ID)}">升级 ${price}命尘</button>
+              </div>`
             : `<span class="hub-lock">未解锁</span>`;
           return `<div class="hub-row${on ? "" : " locked"}">
-            <div class="hub-mini-card"><div class="glyph">传</div><div class="tag">${on ? "已解锁" : "未解锁"}</div><div class="name">${esc(h.名称 || h.传承ID)}</div></div>
-            <div class="hub-copy"><b>${esc(h.名称 || h.传承ID)}</b><p>${body}</p>${btn}</div>
+            <div class="hub-mini-card"><div class="glyph">传</div><div class="tag">${on ? (eq ? "已装备" : "已解锁") : "未解锁"}</div><div class="name">${esc(h.名称 || h.传承ID)}</div></div>
+            <div class="hub-copy"><b>${esc(h.名称 || h.传承ID)}</b><p>${body}</p><p class="heritage-grow">${grow}</p>${btns}</div>
           </div>`;
         })
         .join("");
-      showModalHtmlSafe("传承台", `<div class="hub-panel hub-list">${rows || "<p>金鹏之心已带回青崖峰。</p>"}</div>`);
+      showModalHtmlSafe(
+        "传承台",
+        `<div class="hub-panel hub-list">
+          <div class="heritage-stats">
+            <span>基础攻击力 <b>${stats.atk}</b></span>
+            <span>基础气血 <b>${stats.hp}</b></span>
+            <span>命尘 <b>${dust}</b></span>
+          </div>
+          <p class="heritage-hint">撤离带回的命尘可在此温养传承。每 200 命尘升 1 级，有的加攻击，有的加气血。升级后永久加到主角基础上，不必装备。</p>
+          ${rows || "<p>金鹏之心已带回青崖峰。</p>"}
+        </div>`
+      );
       const root = $("modalText");
       if (!root) return;
       root.querySelectorAll("[data-eq]").forEach((b) => {
@@ -599,6 +693,9 @@
           saveProfile();
           showHeritage();
         };
+      });
+      root.querySelectorAll("[data-up]").forEach((b) => {
+        b.onclick = () => upgradeHeritage(b.getAttribute("data-up"));
       });
     });
   }
@@ -1276,6 +1373,7 @@
       return;
     }
     Bridge.run = created.run;
+    applyHeroHpToRun(Bridge.run);
     Bridge.training = false;
     Bridge.mode = "deep";
     syncRunHud();
@@ -1379,7 +1477,8 @@
     });
     run.nodes.forEach((n) => {
       if (n.layer !== layer) return;
-      const visited = n.revealed || n.resolved;
+      const arriving = n._justArrived && (n.kind === "stairs" || n.flipLayer);
+      const visited = (n.revealed || n.resolved) && !arriving;
       const isAvailable = avail.has(n.index);
       const el = document.createElement("div");
       el.className =
@@ -1387,9 +1486,14 @@
         (visited ? " flipped" : "") +
         (n.index === run.pos ? " current" : "") +
         (isAvailable ? " available" : "") +
-        (n.isBoss ? " danger" : "");
+        (n.isBoss ? " danger" : "") +
+        (n.kind === "stairs" || n.kind === "exit" || n.kind === "start" ? " named" : "");
       el.style.left = n.x + "%";
       el.style.top = n.y + "%";
+      el.style.setProperty(
+        "--back-mark",
+        n.kind === "stairs" ? "阶" : n.kind === "exit" ? "归" : n.kind === "start" ? "起" : "命"
+      );
       el.innerHTML = `<div class="fate-node-inner">
           <div class="fate-face fate-back"></div>
           <div class="fate-face fate-front">
@@ -1397,22 +1501,15 @@
             <div class="fate-label">${n.name || ""}</div>
           </div>
         </div>`;
-      if (isAvailable) {
-        el.onclick = () => {
-          const r = FateExplore.moveTo(run, n.index);
-          if (!r.ok) return toast(r.msg || "无法移动");
-          if (!run.alive) {
-            toast("气血归零，退回青崖峰");
-            Bridge.run = null;
-            if (Bridge.profile) {
-              Bridge.profile.savedWorldRun = null;
-              saveProfile();
-            }
-            return enterFushiBase({ playIntro: false });
-          }
-          if (r.flippedLayer) toast("牌阵翻到下一层");
-          renderDeepMap();
-        };
+      if (isAvailable) el.onclick = () => tryMoveDeep(n.index);
+      if (arriving) {
+        requestAnimationFrame(() => {
+          el.classList.add("flipping");
+          setTimeout(() => {
+            el.classList.add("flipped");
+            el.classList.remove("flipping");
+          }, 780);
+        });
       }
       board.appendChild(el);
     });
@@ -1427,30 +1524,218 @@
     presentDeepNode();
   }
 
+  function afterDeepMove(r) {
+    const run = Bridge.run;
+    if (!r || !r.ok) return toast((r && r.msg) || "无法移动");
+    if (!run.alive) {
+      return extractDeepRun(false, { forced: true });
+    }
+    renderDeepMap();
+  }
+  function tryMoveDeep(index) {
+    const run = Bridge.run;
+    if (!run) return;
+    afterDeepMove(FateExplore.moveTo(run, index));
+  }
+  function moveByDirection(dir) {
+    const run = Bridge.run;
+    if (!run) return;
+    const cur = run.nodes[run.pos];
+    const avail = FateExplore.getAvailable(run);
+    if (!avail.length) return toast("请先结算当前命运牌");
+    if (!cur) return;
+    const scored = avail
+      .map((idx) => {
+        const node = run.nodes[idx];
+        const dx = node.x - cur.x;
+        const dy = node.y - cur.y;
+        const score = dir === "up" ? -dy : dir === "down" ? dy : dir === "left" ? -dx : dx;
+        return { idx, score, offAxis: dir === "up" || dir === "down" ? Math.abs(dx) : Math.abs(dy) };
+      })
+      .filter((item) => item.score > 2)
+      .sort((a, b) => b.score - a.score || a.offAxis - b.offAxis);
+    if (!scored.length) return toast("这个方向没有相邻命运牌");
+    tryMoveDeep(scored[0].idx);
+  }
+
+  function fortunePack() {
+    const faces = [
+      { label: "大吉", luck: 36, hp: 8, text: "签面大吉。气运大涨，气血也暖了一截。" },
+      { label: "吉", luck: 18, text: "签面为吉。气运上升。" },
+      { label: "平", luck: 6, yuan: 1, text: "签面平常。气运微增，真元回了一点。" },
+      { label: "凶", luck: -12, hp: -10, text: "签面为凶。气运受损，气血也被抽走一截。" },
+    ];
+    return FateExplore.shuffle(faces);
+  }
+  function openDeepFortune(node) {
+    Bridge._fortuneOpen = true;
+    if (typeof global.switchScreen === "function") switchScreen("storyScreen");
+    const screen = $("storyScreen");
+    if (screen) {
+      screen.classList.remove("shop-dialog", "choice-dialog");
+      screen.classList.add("event-dialog");
+    }
+    if ($("storySpeaker")) $("storySpeaker").textContent = "问心";
+    if ($("nameForm")) $("nameForm").style.display = "none";
+    if ($("storyActions")) $("storyActions").style.display = "none";
+    const body = (node.conf && node.conf.正文) || "四签翻动，吉凶未定。";
+    if ($("storyText")) {
+      $("storyText").textContent = body + "\n\n命签摊开：吉、吉、大吉、凶。\n它们翻面后在你眼前快速交错。";
+    }
+    const host = $("storyChoices");
+    if (!host) {
+      Bridge._fortuneOpen = false;
+      return;
+    }
+    host.innerHTML = "";
+    host.style.display = "grid";
+    const board = document.createElement("div");
+    board.className = "fortune-board";
+    ["吉", "吉", "大吉", "凶"].forEach((label, i) => {
+      const card = document.createElement("button");
+      card.className = "fortune-card";
+      card.type = "button";
+      card.innerHTML = `<div class="fortune-card-inner">
+        <div class="fortune-card-face fortune-card-front">${label}</div>
+        <div class="fortune-card-face fortune-card-back">命签</div>
+      </div>`;
+      board.appendChild(card);
+      setTimeout(() => card.classList.add("dealt"), i * 260);
+    });
+    host.appendChild(board);
+    const pack = fortunePack();
+    setTimeout(() => {
+      board.querySelectorAll(".fortune-card").forEach((card) => card.classList.add("face-down"));
+    }, 2700);
+    setTimeout(() => board.classList.add("shuffling"), 4050);
+    setTimeout(() => {
+      board.classList.remove("shuffling");
+      if ($("storyText")) $("storyText").textContent = body + "\n\n命签摊开：吉、吉、大吉、凶。\n它们翻面后在你眼前快速交错。\n\n请选择一张。";
+      [...board.querySelectorAll(".fortune-card")].forEach((card, i) => {
+        card._fortune = pack[i];
+        card.classList.add("selectable");
+        card.onclick = () => revealDeepFortune(board, card, node);
+      });
+    }, 6800);
+  }
+  function revealDeepFortune(board, selected, node) {
+    const fortune = selected._fortune || { label: "吉", luck: 12, text: "签面为吉。" };
+    board.querySelectorAll(".fortune-card").forEach((card) => {
+      card.classList.remove("selectable");
+      card.onclick = null;
+      card.disabled = true;
+      if (card !== selected) card.style.opacity = ".42";
+    });
+    const front = selected.querySelector(".fortune-card-front");
+    if (front) front.textContent = fortune.label;
+    selected.disabled = false;
+    selected.classList.remove("face-down");
+    selected.classList.add("revealed");
+    const run = Bridge.run;
+    const logs = [];
+    if (run && fortune.luck) logs.push(...FateExplore.applyEffect(run, "ADD_LUCK", fortune.luck));
+    if (run && fortune.hp) logs.push(...FateExplore.applyEffect(run, "HEAL_HP", fortune.hp));
+    if (run && fortune.yuan) logs.push(...FateExplore.applyEffect(run, "ADD_YUAN", fortune.yuan));
+    if (run) FateExplore.markResolved(run, node);
+    syncRunHud();
+    const result = `你翻开命签，签面亮起：${fortune.label}。\n\n${fortune.text}${logs.length ? "\n" + logs.join(" · ") : ""}`;
+    if ($("storyText")) $("storyText").textContent = result;
+    toast(logs.join(" · ") || fortune.label);
+    if (typeof global.playSfx === "function") playSfx("page");
+    const nextBtn = $("storyNextBtn");
+    if ($("storyActions")) $("storyActions").style.display = "flex";
+    if (nextBtn) {
+      const prev = nextBtn.onclick;
+      nextBtn.textContent = "返回牌阵";
+      nextBtn.onclick = () => {
+        nextBtn.onclick = prev;
+        nextBtn.textContent = "继续";
+        closeDeepFortune();
+      };
+    }
+  }
+  function closeDeepFortune() {
+    Bridge._fortuneOpen = false;
+    const screen = $("storyScreen");
+    if (screen) screen.classList.remove("event-dialog", "choice-dialog", "shop-dialog");
+    if ($("storyChoices")) {
+      $("storyChoices").innerHTML = "";
+      $("storyChoices").style.display = "none";
+    }
+    if ($("storyActions")) $("storyActions").style.display = "none";
+    if (Bridge.run && !Bridge.run.alive) {
+      return extractDeepRun(false, { forced: true });
+    }
+    if (typeof global.switchScreen === "function") switchScreen("mapScreen");
+    renderDeepMap();
+  }
+
   function presentDeepNode() {
     const run = Bridge.run;
     if (!run) return;
     const cur = run.nodes[run.pos];
     if (!cur) return;
     cur.revealed = true;
-    if ($("mapPanelTitle")) $("mapPanelTitle").textContent = `${cur.name || "命运"} · ${cur.type || ""}`;
-    const text = (cur.conf && cur.conf.正文) || (cur.kind === "start" ? "已抵达起点。选择相邻发光命运牌前进。" : "");
+    const kindLabel = cur.kind === "start" ? "起点" : cur.kind === "stairs" ? "上台阶" : cur.kind === "exit" ? "撤离" : cur.type || "命运";
+    if ($("mapPanelTitle")) $("mapPanelTitle").textContent = `${cur.name || "命运"} · ${kindLabel}`;
+    const text =
+      (cur.conf && cur.conf.正文) ||
+      (cur.kind === "start" ? "已抵达起点。选择相邻发光命运牌前进。" : "");
     if ($("mapPanelText")) {
       $("mapPanelText").textContent =
-        text + (cur.flipLayer && cur.resolved ? "\n再往前一步，牌阵将翻到密道。" : "\n点击相邻发光牌继续。可随时撤离或暂时离开。");
+        text +
+        (cur.kind === "start"
+          ? "\n可用右下角方向键，或点相邻发光牌前进。"
+          : cur.kind === "stairs"
+            ? "\n这是本页最后一格。走上来会翻开此牌，确认后再前往新区域。"
+            : cur.kind === "exit"
+              ? "\n这是最后一页的终点格，可从这里撤离。"
+              : "\n可用右下角方向键或点击相邻发光牌继续。");
     }
-    let box = $("deepMapChoices");
-    if (!box) {
-      box = document.createElement("div");
-      box.id = "deepMapChoices";
-      box.className = "choice-list";
-      const panel = document.querySelector("#mapScreen .map-panel");
-      if (panel) panel.appendChild(box);
-    }
+    const box = $("deepMapChoices");
+    if (!box) return;
     box.style.display = "none";
     box.innerHTML = "";
     if (cur.resolved || cur.kind === "start") return;
 
+    if (cur.kind === "exit" || cur.type === "撤离") {
+      box.style.display = "grid";
+      const b = document.createElement("button");
+      b.className = "choice-btn";
+      b.textContent = "尝试撤离";
+      b.onclick = () => tryExtract();
+      box.appendChild(b);
+      return;
+    }
+    if (cur.kind === "stairs" || cur.flipLayer) {
+      if (cur._justArrived) {
+        if ($("mapPanelText")) $("mapPanelText").textContent = "剑符落在上台阶牌背上，命运正在翻开……";
+        box.style.display = "none";
+        if (!cur._flipTimer) {
+          cur._flipTimer = setTimeout(() => {
+            cur._justArrived = false;
+            cur._flipTimer = null;
+            if (Bridge.run && Bridge.run.nodes[Bridge.run.pos] === cur) presentDeepNode();
+          }, 1600);
+        }
+        return;
+      }
+      if ($("mapPanelText")) {
+        $("mapPanelText").textContent =
+          (cur.conf && cur.conf.正文 ? cur.conf.正文 + "\n\n" : "") +
+          "牌面翻开。再往前是新的区域，点按钮后才会切换牌阵。";
+      }
+      box.style.display = "grid";
+      const b = document.createElement("button");
+      b.className = "primary-btn";
+      b.textContent = "前往新区域";
+      b.onclick = () => {
+        box.style.display = "none";
+        goNextDeepLayer(cur);
+      };
+      box.appendChild(b);
+      return;
+    }
     if (cur.type === "战斗" || cur.kind === "battle" || cur.isBoss) {
       box.style.display = "grid";
       const b = document.createElement("button");
@@ -1476,6 +1761,20 @@
       box.appendChild(b);
       return;
     }
+    if (cur.type === "问心" || cur.kind === "fortune") {
+      box.style.display = "none";
+      if (!cur.resolved && !Bridge._fortuneOpen) openDeepFortune(cur);
+      return;
+    }
+    if (cur.type === "灵藏" || cur.kind === "treasure") {
+      box.style.display = "grid";
+      const b = document.createElement("button");
+      b.className = "choice-btn";
+      b.textContent = "拾取灵藏";
+      b.onclick = () => resolveNode(1);
+      box.appendChild(b);
+      return;
+    }
     box.style.display = "grid";
     const opt1 = (cur.conf && cur.conf.选项1文本) || "推进命运";
     const b = document.createElement("button");
@@ -1490,6 +1789,35 @@
       b2.onclick = () => resolveNode(2);
       box.appendChild(b2);
     }
+  }
+
+  function goNextDeepLayer(cur) {
+    const run = Bridge.run;
+    if (!run || !cur || Bridge._layerTransit) return;
+    Bridge._layerTransit = true;
+    cur.resolved = true;
+    cur._justArrived = false;
+    const dest =
+      run.nodes.find((n) => n.layer === cur.layer + 1 && n.kind === "start") ||
+      run.nodes.find((n) => n.layer === cur.layer + 1);
+    if (!dest) {
+      Bridge._layerTransit = false;
+      return toast("没有下一层");
+    }
+    const board = $("fateMap");
+    if (board) board.style.animation = "mapSlideUp 1.05s ease both";
+    toast("前往新区域");
+    setTimeout(() => {
+      run.layer = dest.layer;
+      run.pos = dest.index;
+      dest.revealed = true;
+      dest.resolved = true;
+      dest.kind = "start";
+      dest.mark = dest.mark || "起";
+      if (board) board.style.animation = "";
+      Bridge._layerTransit = false;
+      renderDeepMap();
+    }, 1050);
   }
 
   function resolveNode(opt) {
@@ -1535,8 +1863,12 @@
       };
   }
 
-  function extractDeepRun(success) {
+  function extractDeepRun(success, opts) {
+    if (Bridge._leavingWorld) return;
     const run = Bridge.run;
+    if (!run) return enterFushiBase({ playIntro: false });
+    Bridge._leavingWorld = true;
+    const forced = !!(opts && opts.forced);
     if (Bridge.profile) {
       if (success && run) {
         const gain = 20 + run.depth * 10 + (run.pendingReward || 0);
@@ -1559,13 +1891,14 @@
           toast(`撤离成功，带回命尘 ${gain}`);
         }
       } else {
-        toast("已返回青崖峰，本局奖励未带回");
+        toast(forced ? "气血耗尽，被迫撤离。本局奖励未能带回。" : "已返回青崖峰，本局奖励未带回");
       }
       Bridge.profile.savedWorldRun = null;
       saveProfile();
     }
     Bridge.run = null;
     Bridge.battle = null;
+    Bridge._leavingWorld = false;
     enterFushiBase({ playIntro: false });
   }
 
@@ -1603,6 +1936,16 @@
     const effects = [];
     const env = [];
     const cfg = Bridge.config || {};
+    const stats = heroBaseStats();
+    if (stats.atk > 0) {
+      effects.push({
+        名称: "基础攻击",
+        效果类型: "ADD_SCORE_FLAT",
+        参数A: stats.atk,
+        组别: "基础",
+        描述: `主角当前基础攻击力 ${stats.atk}。每次出牌伤害分+${stats.atk}。可在传承台用命尘升级。`,
+      });
+    }
     if (loadout && loadout.heritage && cfg.heritages[loadout.heritage]) {
       const h = cfg.heritages[loadout.heritage];
       effects.push(Object.assign({}, h, { 名称: h.名称, 组别: "传承" }));
@@ -1954,7 +2297,7 @@
     Bridge.loadout.enemyHp = enemyHp;
     Bridge.battle = FateBattle.createBattle({
       enemyHp,
-      playerHp: 100,
+      playerHp: heroBaseStats().hp,
       pressure: 55,
       trueDamage: 10,
       effects,
@@ -2124,6 +2467,78 @@
         closeModalSafe();
       };
   }
+  function snapshotWorldBattleResult(win) {
+    const b = Bridge.battle;
+    const node = Bridge.battleNode;
+    const mob = (b && b._mob) || {};
+    return {
+      win: !!win,
+      isBoss: !!(node && node.isBoss),
+      mobName: mob.名称 || (node && node.name) || "敌人",
+      playerHp: b ? Math.max(0, b.playerHp) : 0,
+      enemyHp: b ? Math.max(0, b.enemyHp) : 0,
+      turn: b ? b.turn || 1 : 1,
+      luckGain: win ? 10 : 0,
+      loadout: Bridge.loadout || (Bridge.profile && Bridge.profile.loadout) || {},
+    };
+  }
+  function showWorldBattleResult(snap) {
+    const cfg = Bridge.config || {};
+    const lo = (snap && snap.loadout) || {};
+    const her = cfg.heritages && cfg.heritages[lo.heritage];
+    const tian = lookupTian(lo.tian);
+    const dili = lookupDi(lo.dili);
+    const ren = lookupRen(lo.ren);
+    const rows = [
+      resultRow("对手", snap.mobName, snap.isBoss ? "本层首领" : "拦路之敌"),
+      resultRow("传承", her && her.名称, rowDesc(her)),
+      resultRow("天时", tian && tian.名称, rowDesc(tian)),
+      resultRow("地利", dili && dili.名称, rowDesc(dili)),
+      resultRow("人和", ren && (ren.名称 || ren.技能名), rowDesc(ren)),
+    ];
+    const relics = lo.relics || [];
+    if (!relics.length) rows.push(resultRow("宝物", "未带宝物", ""));
+    relics.forEach((id) => {
+      const r = cfg.relics && cfg.relics[id];
+      rows.push(resultRow("宝物", (r && r.名称) || id, rowDesc(r)));
+    });
+    const title = snap.win ? (snap.isBoss ? "首领倒下" : "拼刀胜利") : "拼刀失败";
+    const kicker = snap.win
+      ? `剩余气血 ${snap.playerHp}　用了 ${snap.turn} 回合　气运 +${snap.luckGain}`
+      : `气血耗尽。${snap.mobName} 还剩 ${snap.enemyHp} 点气血。本次入世只能撤离离开。`;
+    let extracted = false;
+    showModalHtmlSafe(
+      title,
+      `<p class="result-kicker">${kicker}</p>
+      <div class="option-stack">
+        ${
+          snap.win
+            ? `<button class="primary-btn" id="worldBattleContinue">继续探索</button>`
+            : `<button class="primary-btn" id="worldBattleExtract">被迫撤离</button>`
+        }
+      </div>
+      <p>本局搭配</p>
+      <div class="result-list">${rows.join("")}</div>`,
+      () => {
+        if (snap.win) {
+          if (typeof global.switchScreen === "function") switchScreen("mapScreen");
+          renderDeepMap();
+          return;
+        }
+        if (!extracted) extractDeepRun(false, { forced: true });
+      }
+    );
+    if ($("worldBattleContinue"))
+      $("worldBattleContinue").onclick = () => {
+        closeModalSafe();
+      };
+    if ($("worldBattleExtract"))
+      $("worldBattleExtract").onclick = () => {
+        extracted = true;
+        closeModalSafe();
+        extractDeepRun(false, { forced: true });
+      };
+  }
   function settleDeepBattle(win) {
     startBgm("story");
     if (global.state) state._fushiDeepBattle = false;
@@ -2139,25 +2554,24 @@
       showTrainingResult(snap);
       return;
     }
+    if (Bridge.run && Bridge.battle) Bridge.run.hp = Math.max(0, Bridge.battle.playerHp);
+    const snap = snapshotWorldBattleResult(win);
     if (win) {
-      if (Bridge.battleNode && Bridge.run) {
-        FateExplore.afterBattleVictory(Bridge.run, Bridge.battleNode);
-        Bridge.battle = null;
-        if (typeof global.switchScreen === "function") switchScreen("mapScreen");
-        renderDeepMap();
-      } else {
-        Bridge.battle = null;
-        enterFushiBase({ playIntro: false });
+      if (Bridge.battleNode && Bridge.run) FateExplore.afterBattleVictory(Bridge.run, Bridge.battleNode);
+      Bridge.battle = null;
+      if (Bridge.profile && Bridge.run) {
+        Bridge.profile.savedWorldRun = { run: Bridge.run, battle: null };
+        saveProfile();
       }
+      showWorldBattleResult(snap);
       return;
     }
-    Bridge.battle = null;
-    Bridge.run = null;
-    if (Bridge.profile) {
-      Bridge.profile.savedWorldRun = null;
-      saveProfile();
+    if (Bridge.run) {
+      Bridge.run.hp = 0;
+      Bridge.run.alive = false;
     }
-    enterFushiBase({ playIntro: false });
+    Bridge.battle = null;
+    showWorldBattleResult(snap);
   }
 
   function renderDeepBattle() {
@@ -2317,10 +2731,13 @@
     const restartBtn = Bridge.training
       ? `<button class="choice-btn" id="optRestart">重开</button>`
       : "";
+    const exitBtnHtml = Bridge.training
+      ? `<button class="choice-btn" id="optExit">退出</button>`
+      : "";
     showModalHtmlSafe(
       "选项",
       `<div class="option-stack">
-        <button class="choice-btn" id="optExit">退出</button>
+        ${exitBtnHtml}
         ${restartBtn}
         <button class="choice-btn" id="optPause">暂时离开</button>
       </div>`
@@ -2573,7 +2990,7 @@
   function onTrainExit() {
     showModalHtmlSafe(
       Bridge.training ? "退出训练" : "退出战斗",
-      `<p>${Bridge.training ? "退出将丢失当前训练进度，返回青崖峰。" : "退出将结束本次入世，返回青崖峰。"}</p>
+      `<p>${Bridge.training ? "退出将丢失当前训练进度，返回青崖峰。" : "世界探索只能从撤离离开。请先回到牌阵，走到撤离格。"}</p>
        <button class="choice-btn" id="confirmTrainExit" style="width:100%;margin-top:8px;">确认退出</button>`
     );
     const b = $("confirmTrainExit");
@@ -2664,6 +3081,7 @@
   Bridge.grantPostTutorial = grantPostTutorial;
   Bridge.isDeep = () => Bridge.mode === "deep";
   Bridge.renderDeepMap = renderDeepMap;
+  Bridge.moveByDirection = moveByDirection;
   Bridge.tryExtract = tryExtract;
   Bridge.pauseWorld = pauseWorld;
   Bridge.showSkipOnNewbieMap = showSkipOnNewbieMap;

@@ -34,9 +34,17 @@
       商店: { icon: "市", mark: "商", kind: "shop" },
       战斗: { icon: "斗", mark: "战", kind: "battle" },
       剧情: { icon: "缘", mark: "事", kind: "event" },
-      撤离: { icon: "终", mark: "终", kind: "exit" },
+      台阶: { icon: "阶", mark: "阶", kind: "stairs" },
+      撤离: { icon: "归", mark: "归", kind: "exit" },
     };
     return map[type] || { icon: "命", mark: "命", kind: "event" };
+  }
+  function isFlipType(t) {
+    return t === "灵藏" || t === "问心";
+  }
+  function isBossCard(conf, bossMob) {
+    if (!conf) return false;
+    return String(conf.备注 || "").includes("BOSS") || (bossMob && conf.怪物ID === bossMob);
   }
 
   function makeNode(fid, config, bossMob, i, x, y, layer) {
@@ -62,73 +70,189 @@
     };
   }
 
-  function placeSnake(list, layer) {
-    const cols = 3;
-    const n = list.length;
-    const rows = Math.max(1, Math.ceil(n / cols));
-    return list.map((item, i) => {
+  function structConf(name, type, body, opt) {
+    return { 名称: name, 类型: type, 正文: body, 选项1文本: opt || "", 选项1效果类型: "", 选项1参数: "" };
+  }
+  function makeStructNode(i, x, y, layer, spec) {
+    const meta = typeMeta(spec.type);
+    return {
+      index: i,
+      fateId: "",
+      name: spec.name,
+      type: spec.type,
+      conf: spec.conf || structConf(spec.name, spec.type, spec.body || "", spec.opt),
+      x,
+      y,
+      layer,
+      revealed: !!spec.revealed,
+      resolved: !!spec.resolved,
+      isBoss: false,
+      icon: spec.icon || meta.icon,
+      mark: spec.mark || meta.mark,
+      kind: spec.kind || meta.kind,
+      flipLayer: !!spec.flipLayer,
+      structural: true,
+    };
+  }
+  function placeLayerItems(items, layer) {
+    const n = items.length;
+    if (n <= 1) return [{ item: items[0], x: 50, y: 50, layer }];
+    const coords = [{ item: items[0], x: 50, y: 86, layer }];
+    const mid = items.slice(1, n - 1);
+    const cols = mid.length <= 2 ? 2 : 3;
+    const rows = Math.max(1, Math.ceil(mid.length / cols));
+    mid.forEach((item, i) => {
       const r = Math.floor(i / cols);
       const c = i % cols;
-      const y = 88 - (r * (70 / Math.max(rows - 1, 1)));
-      const xs = r % 2 === 0 ? [22, 50, 78] : [78, 50, 22];
-      return { item, x: xs[c], y: Math.max(14, y), layer, i };
+      const y = rows === 1 ? 52 : 70 - r * (34 / Math.max(rows - 1, 1));
+      const xs = cols === 2 ? (r % 2 === 0 ? [32, 68] : [68, 32]) : r % 2 === 0 ? [22, 50, 78] : [78, 50, 22];
+      coords.push({ item, x: xs[c] || 50, y: Math.max(34, Math.min(70, y)), layer });
     });
+    coords.push({ item: items[n - 1], x: 50, y: 16, layer });
+    return coords;
+  }
+  function pickMapContent(rest, maxN) {
+    const groups = { flip: [], shop: [], battle: [], other: [] };
+    const xin = [];
+    rest.forEach((c) => {
+      const t = (c.conf && c.conf.类型) || "";
+      if (t === "问心") xin.push(c);
+      else if (isFlipType(t)) groups.flip.push(c);
+      else if (t === "商店") groups.shop.push(c);
+      else if (t === "战斗") groups.battle.push(c);
+      else groups.other.push(c);
+    });
+    groups.flip = xin.concat(groups.flip);
+    const out = [];
+    const take = (arr) => {
+      if (!arr.length || out.length >= maxN) return false;
+      out.push(arr.shift());
+      return true;
+    };
+    const cycle = ["flip", "shop", "flip", "battle", "flip", "other"];
+    let guard = 0;
+    while (out.length < maxN && guard < 80) {
+      guard += 1;
+      let added = false;
+      cycle.forEach((k) => {
+        if (take(groups[k])) added = true;
+      });
+      if (!added) break;
+    }
+    return out;
+  }
+  function enrichFlipPool(ids, config) {
+    const list = (ids || []).slice();
+    const used = new Set(list);
+    const flipOf = (id) => isFlipType((config.fateCards[id] || {}).类型);
+    let have = list.filter(flipOf).length;
+    const want = Math.max(4, Math.ceil(list.length * 0.38));
+    if (have >= want) return list;
+    const extras = Object.keys(config.fateCards || {})
+      .filter((id) => flipOf(id) && !used.has(id))
+      .sort();
+    for (let i = list.length - 1; i >= 0 && have < want && extras.length; i--) {
+      const t = (config.fateCards[list[i]] || {}).类型;
+      if (t === "事件" || t === "剧情") {
+        const next = extras.shift();
+        used.delete(list[i]);
+        used.add(next);
+        list[i] = next;
+        have += 1;
+      }
+    }
+    return list;
   }
 
   /**
-   * 两层牌阵：下层逃亡、上层密道。Boss 固定在最顶层正中。
+   * 分页牌阵：首页起点已翻开；非末页最后一格上台阶；末页最后一格撤离。
+   * 每页最多约 8 格，避免短屏点不中。
    */
   function layoutGraph(cardIds, config, bossMob) {
-    const parsed = cardIds.map((fid) => {
+    const parsed = (cardIds || []).map((fid) => {
       const conf = config.fateCards[fid] || { 名称: fid, 类型: "事件" };
-      const isBoss = String(conf.备注 || "").includes("BOSS") || conf.怪物ID === bossMob;
-      return { fid, conf, isBoss };
+      return { fid, conf, isBoss: isBossCard(conf, bossMob) };
     });
     const bosses = parsed.filter((x) => x.isBoss);
-    const rest = parsed.filter((x) => !x.isBoss);
-    const split = Math.min(7, Math.max(5, Math.ceil(rest.length / 2)));
-    const layer0src = rest.slice(0, split);
-    const layer1src = rest.slice(split).concat(bosses);
-    const placed0 = placeSnake(layer0src, 0);
-    const placed1 = placeSnake(layer1src.length ? layer1src : bosses, 1);
+    const rest = parsed.filter((x) => !x.isBoss && (x.conf.类型 || "") !== "撤离");
+    const CONTENT_PER_LAYER = 5;
+    const nLayers = rest.length >= 6 ? 2 : 1;
+    const content = pickMapContent(rest, nLayers * CONTENT_PER_LAYER);
+    const buckets = [];
+    const per = Math.ceil(content.length / nLayers) || 1;
+    for (let L = 0; L < nLayers; L++) buckets.push(content.slice(L * per, (L + 1) * per));
     const nodes = [];
-    placed0.forEach((p) => {
-      nodes.push(makeNode(p.item.fid, config, bossMob, nodes.length, p.x, p.y, 0));
-    });
-    if (nodes.length) {
-      const last0 = nodes[nodes.length - 1];
-      last0.flipLayer = true;
-      last0.mark = "渡";
-      last0.name = last0.name || "密道入口";
-    }
-    placed1.forEach((p) => {
-      nodes.push(makeNode(p.item.fid, config, bossMob, nodes.length, p.x, p.y, 1));
-    });
-    if (nodes[0]) {
-      nodes[0].mark = "起";
-      nodes[0].icon = "符";
-      nodes[0].kind = "start";
-      nodes[0].resolved = true;
-      nodes[0].revealed = true;
-      nodes[0].x = 50;
-      nodes[0].y = 88;
-    }
-    const bossNode = nodes.find((x) => x.isBoss);
-    if (bossNode) {
-      bossNode.x = 50;
-      bossNode.y = 10;
-      bossNode.layer = 1;
-    }
     const edges = [];
-    const byLayer = [nodes.filter((n) => n.layer === 0), nodes.filter((n) => n.layer === 1)];
-    byLayer.forEach((arr) => {
-      for (let i = 0; i < arr.length - 1; i++) edges.push([arr[i].index, arr[i + 1].index]);
-      for (let i = 1; i < arr.length - 2; i++) {
-        if (i % 3 === 0 && i + 2 < arr.length) edges.push([arr[i].index, arr[i + 2].index]);
+    for (let L = 0; L < nLayers; L++) {
+      const isFirst = L === 0;
+      const isLast = L === nLayers - 1;
+      const layerItems = [];
+      layerItems.push({
+        structural: true,
+        name: isFirst ? "起点" : "密道入口",
+        type: "起点",
+        kind: "start",
+        mark: "起",
+        icon: "符",
+        body: isFirst ? "已抵达起点。选择相邻发光命运牌前进。" : "牌阵翻到了下一层。选择相邻发光命运牌继续。",
+        revealed: isFirst,
+        resolved: isFirst,
+      });
+      (buckets[L] || []).forEach((c) => layerItems.push(c));
+      if (isLast) {
+        if (bosses[0]) layerItems.push(bosses[0]);
+        layerItems.push({
+          structural: true,
+          name: "撤离",
+          type: "撤离",
+          kind: "exit",
+          mark: "归",
+          icon: "归",
+          body: "这是本层最后一格。击败首领后可从这里撤离，带走本局收获。",
+          opt: "尝试撤离",
+        });
+      } else {
+        layerItems.push({
+          structural: true,
+          name: "上台阶",
+          type: "台阶",
+          kind: "stairs",
+          mark: "阶",
+          icon: "阶",
+          flipLayer: true,
+          body: "这是本页最后一格。走上来后，牌阵会翻到下一层。",
+          opt: "登上台阶",
+        });
       }
-    });
-    if (byLayer[0].length && byLayer[1].length) {
-      edges.push([byLayer[0][byLayer[0].length - 1].index, byLayer[1][0].index]);
+      const placed = placeLayerItems(layerItems, L);
+      const startIndex = nodes.length;
+      placed.forEach((p) => {
+        const item = p.item;
+        if (item.structural) {
+          nodes.push(
+            makeStructNode(nodes.length, p.x, p.y, L, {
+              name: item.name,
+              type: item.type,
+              kind: item.kind,
+              mark: item.mark,
+              icon: item.icon,
+              body: item.body,
+              opt: item.opt,
+              revealed: item.revealed,
+              resolved: item.resolved,
+              flipLayer: item.flipLayer,
+            })
+          );
+        } else {
+          const node = makeNode(item.fid, config, bossMob, nodes.length, p.x, p.y, L);
+          node.revealed = false;
+          nodes.push(node);
+        }
+      });
+      for (let i = startIndex; i < nodes.length - 1; i++) edges.push([i, i + 1]);
+      for (let i = startIndex + 1; i < nodes.length - 2; i++) {
+        if ((i - startIndex) % 3 === 0) edges.push([i, Math.min(nodes.length - 1, i + 2)]);
+      }
     }
     return { nodes, edges };
   }
@@ -156,19 +280,7 @@
       if (bossFate) ids.push(bossFate.命运卡ID);
     }
 
-    // 洗牌内容，但布局算法再布置坐标与连线
-    ids = shuffle(ids);
-    // 起点语义：把一张非战斗卡放到第一位更自然
-    const soft = ids.findIndex((id) => {
-      const t = (config.fateCards[id] || {}).类型;
-      return t !== "战斗" && t !== "撤离";
-    });
-    if (soft > 0) {
-      const t = ids[0];
-      ids[0] = ids[soft];
-      ids[soft] = t;
-    }
-
+    ids = enrichFlipPool(shuffle(ids), config);
     const graph = layoutGraph(ids, config, bossMob);
     const run = {
       worldId,
@@ -232,14 +344,14 @@
     payMove(run);
     if (!run.alive) return { ok: false, msg: "气血耗尽" };
     run.pos = targetIndex;
-    run.nodes[targetIndex].revealed = true;
     const next = run.nodes[targetIndex];
-    let flipped = false;
-    if (next && next.layer !== (run.layer || 0)) {
-      run.layer = next.layer;
-      flipped = true;
+    if (next) {
+      next.revealed = true;
+      next._justArrived = true;
     }
-    return { ok: true, flippedLayer: flipped, layer: run.layer };
+    if (next && next.kind === "start") next.resolved = true;
+    if (next && next.layer !== (run.layer || 0)) run.layer = next.layer;
+    return { ok: true, arrivedStairs: !!(next && (next.kind === "stairs" || next.flipLayer)), layer: run.layer };
   }
 
   function canExtract(run) {

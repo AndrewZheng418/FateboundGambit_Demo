@@ -1057,8 +1057,8 @@
 
     .fate-node {
       position: absolute;
-      width: 54px;
-      height: 74px;
+      width: 64px;
+      height: 88px;
       transform: translate(-50%, -50%);
       perspective: 800px;
       z-index: 3;
@@ -1198,6 +1198,20 @@
       display: none;
       font-size: 10px;
       line-height: 1.1;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .fate-node.named .fate-label,
+    .fate-node.flipped .fate-label {
+      display: block;
+    }
+    @media (max-height: 720px) {
+      .fate-map { bottom: calc(168px + var(--safe-bottom)); }
+      .map-panel { max-height: min(36vh, 240px); }
+      .fate-node { width: 60px; height: 82px; }
+      .map-dpad { bottom: calc(186px + var(--safe-bottom)); }
     }
 
     .fate-node.current {
@@ -1297,18 +1311,36 @@
     .map-panel {
       min-height: 160px;
       padding: 13px 14px 12px;
+      display: flex;
+      flex-direction: column;
+      max-height: min(42vh, 300px);
     }
 
     .map-panel h3 {
       margin: 0 0 6px;
       font-size: 17px;
       color: #762019;
+      flex: none;
     }
 
     .map-panel p {
       margin: 0;
       font-size: 14px;
       line-height: 1.55;
+      overflow-y: auto;
+      flex: 1 1 auto;
+      min-height: 36px;
+      max-height: 72px;
+    }
+    #deepMapChoices {
+      flex: none;
+      display: grid;
+      gap: 8px;
+      margin: 8px 0 0;
+    }
+    #mapScreen .map-panel .dialog-actions {
+      flex: none;
+      margin-top: 8px;
     }
 
     #moveBtn {
@@ -2663,6 +2695,43 @@
       font-size: 11px;
       font-weight: 800;
     }
+    .heritage-stats {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 0 0 8px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(255,247,222,.94);
+      border: 1px solid rgba(105,65,24,.28);
+      box-shadow: 0 6px 12px rgba(58,28,15,.08);
+    }
+    .heritage-stats span { font-size: 13px; color: #3f2a14; }
+    .heritage-stats b { color: #762019; }
+    .heritage-hint {
+      margin: 0 0 4px;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #5a3a18;
+    }
+    .heritage-grow { margin-top: 6px !important; color: #694116 !important; }
+    .hub-row-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    .hub-row-actions .ghost-btn,
+    .hub-row-actions .primary-btn {
+      width: auto;
+      flex: 0 0 auto;
+      min-height: 32px;
+      padding: 0 10px;
+      font-size: 12px;
+    }
     .hub-comp-row { grid-template-columns: 92px 1fr; min-height: 148px; }
     .hub-comp-art {
       overflow: hidden;
@@ -2767,9 +2836,8 @@
       border-radius: 8px; border: 1px solid rgba(120,78,28,.35); background: #fffaf0;
     }
     .quick-start-btn { width: 100%; margin-top: 8px; }
-    .map-panel .dialog-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .map-panel .dialog-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
     #skipNewbieBtn, #extractRunBtn, #pauseRunBtn { flex: 1; }
-    #deepMapChoices { display: grid; gap: 8px; margin-top: 8px; }
     .train-battle-bar { display: none !important; }
     .option-stack { display: grid; gap: 8px; margin-top: 4px; }
     .option-stack button { width: 100%; }
@@ -3122,6 +3190,7 @@
         <div class="map-panel">
           <h3 id="mapPanelTitle">命运牌阵</h3>
           <p id="mapPanelText">点击发光的相邻命运牌，选择你的下一步路线。</p>
+          <div id="deepMapChoices" class="choice-list" style="display:none;"></div>
           <div class="dialog-actions">
             <button id="moveBtn" class="primary-btn">选择路线</button>
             <button id="objectiveBtn" class="ghost-btn">当前目标</button>
@@ -6324,7 +6393,7 @@
       updateSoundButton();
       $('objectiveBtn').onclick = () => {
         if (window.FushiBridge && FushiBridge.isDeep()) {
-          showModal('当前目标', '点击相邻发光牌前进。红色牌是首领，在最上方。走到本层尽头会翻到下一层。随时可撤离或暂时离开。');
+          showModal('当前目标', '可用右下角方向键或点击相邻发光牌前进。每页最后一格是上台阶，最后一页最后一格是撤离。红色牌是首领。');
           return;
         }
         showModal('当前目标', '沿命运牌阵逃离青崖峰后山。\n点击发光的相邻命运牌选择路线；每移动一次消耗 1 点真元，剑符会落到目标牌并翻开它。');
@@ -6359,7 +6428,10 @@
       $('modal').onclick = (e) => { if (e.target.id === 'modal') closeModal(); };
       document.querySelectorAll('.dpad-btn').forEach(btn => {
         btn.onclick = () => {
-          if (window.FushiBridge && FushiBridge.isDeep()) return showToast('深度世界请点击发光命运牌');
+          if (window.FushiBridge && FushiBridge.isDeep()) {
+            if (FushiBridge.moveByDirection) FushiBridge.moveByDirection(btn.dataset.dir);
+            return;
+          }
           moveByDirection(btn.dataset.dir);
         };
       });

@@ -32,6 +32,7 @@
       loadoutFate: [],
       fateDecks: [[], [], []],
       equippedHeritage: ["HERITAGE_001"],
+      heritageLevels: {},
       loadout: { heritage: "HERITAGE_001", tian: "TIAN_001", dili: "DI_001", ren: "REN_001", relics: ["RELIC_115"] },
       worldProgress: {
         WORLD_QINGMU: { depthCleared: 0, unlockedDepth: 1 },
